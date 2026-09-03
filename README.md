@@ -7,6 +7,10 @@
 [![Chart.js](https://img.shields.io/badge/Chart.js-4.x-FF6384?style=flat-square&logo=chart.js)](https://www.chartjs.org/)
 [![License: MIT](https://img.shields.io/badge/License-MIT-emerald?style=flat-square)](LICENSE)
 
+<p align="center">
+  <img src="public/fit-dashboard-preview.png" alt="Fit Evolution Dashboard Preview" width="100%" />
+</p>
+
 ---
 
 ## ✨ Features
