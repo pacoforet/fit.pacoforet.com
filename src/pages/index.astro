@@ -1,0 +1,3077 @@
+---
+import initialData from "../data/renpho-data.json";
+import "../styles/global.css";
+
+const publicAuthHash = import.meta.env.PUBLIC_AUTH_HASH || "22610a297f0af193879f19dc56f88a7ab2434d7bcfe8f3ad75dc96d3e2f2a994";
+const publicEnableAuth = import.meta.env.PUBLIC_ENABLE_AUTH !== "false";
+const defaultUserName = import.meta.env.PUBLIC_USER_NAME || "Usuario Demo";
+---
+
+<!doctype html>
+<html lang="es" class="antialiased">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=0, viewport-fit=cover" />
+    <meta name="robots" content="noindex, nofollow" />
+    <title>Fit Dashboard | Recomposición Corporal</title>
+    <link rel="icon" type="image/svg+xml" href="/fit-icon.svg" />
+    
+    <!-- PWA & iOS SPECIFIC META TAGS (iPhone 16 Pro Optimized) -->
+    <link rel="manifest" href="/manifest.json" />
+    <meta name="apple-mobile-web-app-capable" content="yes" />
+    <meta name="apple-mobile-web-app-status-bar-style" content="default" />
+    <meta name="apple-mobile-web-app-title" content="Fit Dashboard" />
+    <meta name="mobile-web-app-capable" content="yes" />
+    <meta name="theme-color" content="#0f1013" />
+    <link rel="apple-touch-icon" href="/fit-icon.svg" />
+
+    <script is:inline>
+      document.documentElement.classList.toggle(
+        "dark",
+        localStorage.theme === "dark" ||
+          (!("theme" in localStorage) &&
+            window.matchMedia("(prefers-color-scheme: dark)").matches),
+      );
+    </script>
+    <!-- Chart.js CDN -->
+    <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js"></script>
+    <style>
+      /* Hide scrollbars for pill navigation while retaining swipe */
+      .no-scrollbar::-webkit-scrollbar {
+        display: none;
+      }
+      .no-scrollbar {
+        -ms-overflow-style: none;
+        scrollbar-width: none;
+      }
+      /* Smooth touch scrolling */
+      .touch-scroll {
+        -webkit-overflow-scrolling: touch;
+      }
+      /* iPhone notch and dynamic island safe areas with generous margin */
+      .safe-top {
+        padding-top: max(0.85rem, calc(env(safe-area-inset-top, 0px) + 0.6rem));
+      }
+      .safe-bottom {
+        padding-bottom: max(1.5rem, calc(env(safe-area-inset-bottom, 0px) + 1.25rem));
+      }
+    </style>
+  </head>
+  <body class="bg-slate-50 dark:bg-[#0f1013] text-slate-900 dark:text-slate-100 min-h-screen flex flex-col font-sans transition-colors duration-200 selection:bg-emerald-500/20 safe-bottom">
+    
+    <!-- AUTH GATE CONTAINER -->
+    <div id="auth-gate" class="fixed inset-0 z-50 bg-slate-950/90 backdrop-blur-md flex items-center justify-center p-4 sm:p-6 safe-top">
+      <div class="w-full max-w-sm bg-white dark:bg-[#18191d] border border-slate-200 dark:border-slate-800 rounded-3xl p-6 sm:p-8 shadow-2xl relative overflow-hidden">
+        <div class="absolute -top-20 -right-20 w-40 h-40 bg-emerald-500/15 rounded-full blur-3xl pointer-events-none"></div>
+        <div class="absolute -bottom-20 -left-20 w-40 h-40 bg-teal-500/15 rounded-full blur-3xl pointer-events-none"></div>
+        
+        <div class="text-center mb-6">
+          <div class="inline-flex items-center justify-center w-12 h-12 rounded-2xl bg-emerald-500/10 text-emerald-500 mb-3 border border-emerald-500/20">
+            <svg class="w-6 h-6" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+              <path stroke-linecap="round" stroke-linejoin="round" d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z"/>
+            </svg>
+          </div>
+          <h1 class="text-xl font-bold tracking-tight">Acceso Fit Dashboard</h1>
+          <p class="text-xs text-slate-500 dark:text-slate-400 mt-0.5">Evolución & Composición Corporal</p>
+        </div>
+
+        <form id="login-form" class="space-y-4">
+          <div>
+            <label class="block text-xs font-semibold uppercase tracking-wider text-slate-500 dark:text-slate-400 mb-1" for="login-user">Usuario</label>
+            <input 
+              type="text" 
+              id="login-user" 
+              required 
+              autocomplete="username"
+              class="w-full px-4 py-3 text-base sm:text-sm rounded-xl border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-900 text-slate-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-emerald-500 transition-all"
+              placeholder="admin"
+            />
+          </div>
+          <div>
+            <label class="block text-xs font-semibold uppercase tracking-wider text-slate-500 dark:text-slate-400 mb-1" for="login-pass">Contraseña</label>
+            <input 
+              type="password" 
+              id="login-pass" 
+              required 
+              autocomplete="current-password"
+              class="w-full px-4 py-3 text-base sm:text-sm rounded-xl border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-900 text-slate-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-emerald-500 transition-all"
+              placeholder="••••••••••••"
+            />
+          </div>
+
+          <div id="login-error" class="hidden p-3 rounded-xl bg-red-500/10 border border-red-500/20 text-red-500 text-xs font-medium text-center">
+            Usuario o contraseña incorrectos
+          </div>
+
+          <button 
+            type="submit" 
+            class="w-full py-3.5 px-4 bg-emerald-600 hover:bg-emerald-500 active:bg-emerald-700 text-white font-semibold rounded-xl shadow-lg shadow-emerald-600/25 transition-all flex items-center justify-center gap-2 text-sm"
+          >
+            <span>Desbloquear</span>
+            <svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+              <path stroke-linecap="round" stroke-linejoin="round" d="M13.5 4.5L21 12m0 0l-7.5 7.5M21 12H3"/>
+            </svg>
+          </button>
+        </form>
+
+        <div class="mt-5 text-center">
+          <p class="text-[11px] text-slate-400">
+            Fit Evolution Dashboard · Zero-Database Architecture
+          </p>
+        </div>
+      </div>
+    </div>
+
+    <!-- MAIN DASHBOARD (HIDDEN UNTIL AUTH) -->
+    <div id="dashboard-app" class="hidden flex-1 flex flex-col">
+      
+      <!-- TOP NAVIGATION BAR (CLEAN SOLID HEADER, NO OVERLAY / NO BLUR TINT) -->
+      <header class="sticky top-0 z-40 bg-white dark:bg-[#0f1013] border-b border-slate-200 dark:border-slate-800/80 px-3 sm:px-6 lg:px-8 pb-3 safe-top">
+        <div class="max-w-7xl mx-auto flex items-center justify-between gap-2">
+          
+          <!-- Logo & Title -->
+          <div class="flex items-center gap-2 sm:gap-3 min-w-0">
+            <a href="/" class="flex items-center gap-2 group shrink-0">
+              <div class="w-7 h-7 sm:w-8 sm:h-8 rounded-lg bg-emerald-500/10 flex items-center justify-center text-emerald-600 dark:text-emerald-400">
+                <svg class="w-4 h-4 sm:w-5 sm:h-5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+                  <path stroke-linecap="round" stroke-linejoin="round" d="M3.75 13.5l10.5-11.25L12 10.5h8.25L9.75 21.75 12 13.5H3.75z"/>
+                </svg>
+              </div>
+              <span id="header-user-name" class="font-bold text-sm sm:text-base tracking-tight text-slate-900 dark:text-white truncate">{defaultUserName}</span>
+            </a>
+            <span class="text-slate-300 dark:text-slate-700">/</span>
+            <div class="flex items-center gap-1.5 min-w-0">
+              <span class="font-semibold text-emerald-600 dark:text-emerald-400 text-xs sm:text-sm truncate">Fit</span>
+              <span id="badge-records-count" class="inline-flex items-center px-1.5 py-0.5 rounded-full text-[10px] sm:text-xs font-semibold bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-300 border border-slate-200 dark:border-slate-700 whitespace-nowrap">
+                71
+              </span>
+              <button 
+                id="btn-cloud-sync" 
+                class="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-semibold bg-slate-100 dark:bg-slate-800 text-slate-500 dark:text-slate-400 border border-slate-200 dark:border-slate-700 hover:border-emerald-500/40 active:scale-95 transition-all cursor-pointer" 
+                title="Sincronización en la nube (Pulsa para sincronizar)"
+              >
+                <span id="cloud-sync-dot" class="w-1.5 h-1.5 rounded-full bg-slate-400"></span>
+                <span id="cloud-sync-text" class="hidden xs:inline">Local</span>
+              </button>
+            </div>
+          </div>
+
+          <!-- Actions Header -->
+          <div class="flex items-center gap-1 sm:gap-2 shrink-0">
+            
+            <!-- Botón Generar Imagen de Informe -->
+            <button 
+              id="btn-open-report" 
+              class="inline-flex items-center gap-1 px-2.5 sm:px-3 py-1.5 text-xs font-semibold rounded-lg bg-emerald-600 text-white hover:bg-emerald-500 active:scale-95 shadow-sm shadow-emerald-600/20 transition-all"
+              title="Exportar Informe Visual en Imagen"
+            >
+              <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" d="M6.827 6.175A2.31 2.31 0 015.186 7.23c-.38.054-.757.112-1.134.175C2.999 7.58 2.25 8.507 2.25 9.574V18a2.25 2.25 0 002.25 2.25h15A2.25 2.25 0 0021.75 18V9.574c0-1.067-.75-1.994-1.802-2.169a47.865 47.865 0 00-1.134-.175 2.31 2.31 0 01-1.64-1.055l-.822-1.316a2.192 2.192 0 00-1.736-1.039 48.774 48.774 0 00-5.232 0 2.192 2.192 0 00-1.736 1.039l-.821 1.316z"/>
+                <path stroke-linecap="round" stroke-linejoin="round" d="M16.5 12.75a4.5 4.5 0 11-9 0 4.5 4.5 0 019 0zM18.75 10.5h.008v.008h-.008V10.5z"/>
+              </svg>
+              <span class="hidden xs:inline">Informe</span>
+            </button>
+
+            <button 
+              id="btn-open-import" 
+              class="inline-flex items-center gap-1 px-2.5 sm:px-3 py-1.5 text-xs font-semibold rounded-lg bg-emerald-600/10 text-emerald-700 dark:text-emerald-300 hover:bg-emerald-600/20 active:scale-95 border border-emerald-600/20 transition-all"
+              title="Importar CSV de RENPHO"
+            >
+              <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" d="M12 4.5v15m7.5-7.5h-15"/>
+              </svg>
+              <span class="hidden sm:inline">CSV</span>
+            </button>
+
+            <button 
+              id="btn-open-manual" 
+              class="inline-flex items-center gap-1 px-2.5 sm:px-3 py-1.5 text-xs font-semibold rounded-lg bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-200 hover:bg-slate-200 dark:hover:bg-slate-700 active:scale-95 border border-slate-200 dark:border-slate-700 transition-all"
+              title="Añadir pesaje manual"
+            >
+              <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" d="M16.862 4.487l1.687-1.688a1.875 1.875 0 112.652 2.652L10.582 16.07a4.5 4.5 0 01-1.897 1.13L6 18l.8-2.685a4.5 4.5 0 011.13-1.897l8.932-8.931zm0 0L19.5 7.125M18 14v4.75A2.25 2.25 0 0115.75 21H5.25A2.25 2.25 0 013 18.75V8.25A2.25 2.25 0 015.25 6H10"/>
+              </svg>
+              <span class="hidden md:inline">+ Registro</span>
+            </button>
+
+            <button 
+              id="btn-open-export" 
+              class="p-1.5 rounded-lg text-slate-500 hover:text-slate-700 dark:text-slate-400 dark:hover:text-slate-200 hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors"
+              title="Exportar / Backup"
+            >
+              <svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" d="M3 16.5v2.25A2.25 2.25 0 005.25 21h13.5A2.25 2.25 0 0021 18.75V16.5m-13.5-9L12 3m0 0l4.5 4.5M12 3v13.5"/>
+              </svg>
+            </button>
+
+            <button 
+              id="theme-btn" 
+              class="p-1.5 rounded-lg text-slate-500 hover:text-slate-700 dark:text-slate-400 dark:hover:text-slate-200 hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors"
+              title="Modo claro / oscuro"
+            >
+              <svg class="w-4 h-4 hidden dark:block" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M12 3v2.25m6.364.386l-1.591 1.591M21 12h-2.25m-.386 6.364l-1.591-1.591M12 18.75V21m-4.773-4.227l-1.591 1.591M5.25 12H3m4.227-4.773L5.636 5.636M15.75 12a3.75 3.75 0 11-7.5 0 3.75 3.75 0 017.5 0z"/></svg>
+              <svg class="w-4 h-4 block dark:hidden" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M21.752 15.002A9.718 9.718 0 0118 15.75c-5.385 0-9.75-4.365-9.75-9.75 0-1.33.266-2.597.748-3.752A9.753 9.753 0 003 11.25C3 16.635 7.365 21 12.75 21a9.753 9.753 0 009.002-5.998z"/></svg>
+            </button>
+
+            <button 
+              id="btn-logout" 
+              class="p-1.5 rounded-lg text-slate-400 hover:text-red-500 dark:hover:text-red-400 transition-colors"
+              title="Cerrar sesión"
+            >
+              <svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" d="M15.75 9V5.25A2.25 2.25 0 0013.5 3h-6a2.25 2.25 0 00-2.25 2.25v13.5A2.25 2.25 0 007.5 21h6a2.25 2.25 0 002.25-2.25V15M12 9l-3 3m0 0l3 3m-3-3h12.75"/>
+              </svg>
+            </button>
+          </div>
+        </div>
+      </header>
+
+      <!-- DASHBOARD MAIN BODY -->
+      <main class="max-w-7xl mx-auto w-full px-3 sm:px-6 lg:px-8 py-3 sm:py-6 space-y-3.5 sm:space-y-6">
+
+        <!-- HERO SUMMARY BANNER -->
+        <div class="relative overflow-hidden bg-gradient-to-br from-emerald-600 via-teal-700 to-slate-900 rounded-2xl sm:rounded-3xl p-4 sm:p-7 text-white shadow-lg">
+          <div class="absolute top-0 right-0 -mt-10 -mr-10 w-48 h-48 bg-emerald-400/20 rounded-full blur-3xl pointer-events-none"></div>
+          
+          <div class="relative z-10 flex flex-col lg:flex-row lg:items-center lg:justify-between gap-4 sm:gap-6">
+            <div>
+              <div class="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full bg-white/10 backdrop-blur-md text-[10px] sm:text-xs font-semibold tracking-wide uppercase text-emerald-200 mb-2 border border-white/15">
+                <span class="w-1.5 h-1.5 rounded-full bg-emerald-300 animate-pulse"></span>
+                <span id="hero-period-badge">Dieta + Deporte · 19 Jun 2026</span>
+              </div>
+              <h2 class="text-xl sm:text-2xl lg:text-3xl font-black tracking-tight leading-tight">Evolución & Composición</h2>
+            </div>
+
+            <!-- 4 Quick Stats -->
+            <div class="grid grid-cols-2 sm:grid-cols-4 gap-2 sm:gap-3">
+              <div class="bg-black/30 backdrop-blur-md border border-white/10 rounded-xl sm:rounded-2xl p-2.5 sm:p-3 text-center">
+                <div id="hero-lost-label" class="text-[10px] sm:text-xs text-emerald-200/80 font-medium">Pérdida Total</div>
+                <div id="hero-total-lost" class="text-lg sm:text-2xl font-black text-white mt-0.5">-7.60 kg</div>
+                <div id="hero-total-lost-pct" class="text-[10px] text-emerald-300 font-semibold">-8.7% peso</div>
+              </div>
+              
+              <div class="bg-black/30 backdrop-blur-md border border-white/10 rounded-xl sm:rounded-2xl p-2.5 sm:p-3 text-center">
+                <div id="hero-fat-label" class="text-[10px] sm:text-xs text-emerald-200/80 font-medium">Grasa Pura</div>
+                <div id="hero-fat-kg-lost" class="text-lg sm:text-2xl font-black text-emerald-300 mt-0.5">-4.68 kg</div>
+                <div class="text-[10px] text-emerald-200/90 font-semibold">61.6% grasa</div>
+              </div>
+
+              <div class="bg-black/30 backdrop-blur-md border border-white/10 rounded-xl sm:rounded-2xl p-2.5 sm:p-3 text-center">
+                <div id="hero-rate-label" class="text-[10px] sm:text-xs text-emerald-200/80 font-medium">Ritmo Medio</div>
+                <div id="hero-weekly-rate" class="text-lg sm:text-2xl font-black text-white mt-0.5">0.78 kg/s</div>
+                <div class="text-[10px] text-emerald-300 font-semibold">óptimo</div>
+              </div>
+
+              <div class="bg-black/30 backdrop-blur-md border border-white/10 rounded-xl sm:rounded-2xl p-2.5 sm:p-3 text-center">
+                <div id="hero-days-label" class="text-[10px] sm:text-xs text-emerald-200/80 font-medium">Días Activo</div>
+                <div id="hero-days-active" class="text-lg sm:text-2xl font-black text-white mt-0.5">68 d</div>
+                <div id="hero-weeks-active" class="text-[10px] text-emerald-200/90 font-semibold">~9.7 sem</div>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- TIMEFRAME SELECTOR -->
+        <div class="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2.5 bg-white dark:bg-[#16171b] p-2 sm:p-2.5 rounded-2xl border border-slate-200 dark:border-slate-800 shadow-sm">
+          <div class="flex items-center gap-1 overflow-x-auto no-scrollbar touch-scroll w-full sm:w-auto" id="timeframe-buttons">
+            <button id="btn-range-all" data-range="all" class="timeframe-btn active shrink-0 px-3 py-1.5 text-xs font-semibold rounded-xl bg-slate-900 text-white dark:bg-emerald-500 dark:text-slate-950 transition-all">
+              Todo
+            </button>
+            <button data-range="30d" class="timeframe-btn shrink-0 px-3 py-1.5 text-xs font-medium rounded-xl text-slate-600 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-800 transition-all">
+              30 días
+            </button>
+            <button data-range="14d" class="timeframe-btn shrink-0 px-3 py-1.5 text-xs font-medium rounded-xl text-slate-600 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-800 transition-all">
+              14 días
+            </button>
+            <button data-range="7d" class="timeframe-btn shrink-0 px-3 py-1.5 text-xs font-medium rounded-xl text-slate-600 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-800 transition-all">
+              7 días
+            </button>
+          </div>
+
+          <div class="flex items-center justify-between sm:justify-end gap-1.5 text-[11px] text-slate-500 dark:text-slate-400 px-1">
+            <span>Última medición:</span>
+            <span id="last-weighin-badge" class="font-bold text-slate-800 dark:text-slate-200 bg-slate-100 dark:bg-slate-800/80 px-2 py-0.5 rounded-lg border border-slate-200 dark:border-slate-700">
+              --
+            </span>
+          </div>
+        </div>
+
+        <!-- 6 PRIMARY KPI CARDS -->
+        <div class="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-2.5 sm:gap-3.5">
+          
+          <!-- KPI 1: PESO -->
+          <div class="bg-white dark:bg-[#16171b] border border-slate-200/90 dark:border-slate-800/90 rounded-2xl p-3 sm:p-4 shadow-sm flex flex-col justify-between hover:border-emerald-500/40 transition-colors">
+            <div class="flex items-center justify-between text-slate-500 dark:text-slate-400 mb-1">
+              <span class="text-[10px] sm:text-xs font-bold uppercase tracking-wider">Peso Actual</span>
+              <div class="w-5 h-5 sm:w-6 sm:h-6 rounded-lg bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 flex items-center justify-center">
+                <svg class="w-3 h-3 sm:w-3.5 sm:h-3.5" fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M12 3v17.25m0 0l-4-4m4 4l4-4"/></svg>
+              </div>
+            </div>
+            <div>
+              <div class="flex items-baseline gap-1">
+                <span id="kpi-weight-val" class="text-xl sm:text-2xl lg:text-3xl font-black tracking-tight">--</span>
+                <span class="text-[11px] sm:text-xs font-bold text-slate-400">kg</span>
+              </div>
+              <div class="flex items-center gap-1 mt-0.5">
+                <span id="kpi-weight-diff" class="text-[10px] sm:text-xs font-black px-1.5 py-0.5 rounded bg-emerald-500/10 text-emerald-600 dark:text-emerald-400">--</span>
+                <span id="kpi-weight-period" class="text-[9px] sm:text-[10px] text-slate-400">inicio</span>
+              </div>
+            </div>
+          </div>
+
+          <!-- KPI 2: % GRASA -->
+          <div class="bg-white dark:bg-[#16171b] border border-slate-200/90 dark:border-slate-800/90 rounded-2xl p-3 sm:p-4 shadow-sm flex flex-col justify-between hover:border-amber-500/40 transition-colors">
+            <div class="flex items-center justify-between text-slate-500 dark:text-slate-400 mb-1">
+              <span class="text-[10px] sm:text-xs font-bold uppercase tracking-wider">% Grasa</span>
+              <div class="w-5 h-5 sm:w-6 sm:h-6 rounded-lg bg-amber-500/10 text-amber-600 dark:text-amber-400 flex items-center justify-center">
+                <svg class="w-3 h-3 sm:w-3.5 sm:h-3.5" fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M15.362 5.214A8.252 8.252 0 0112 21 8.25 8.25 0 016.038 7.048 8.287 8.287 0 009 9.6a8.983 8.983 0 013.361-6.867 8.21 8.21 0 003 2.48z"/></svg>
+              </div>
+            </div>
+            <div>
+              <div class="flex items-baseline gap-1">
+                <span id="kpi-fat-val" class="text-xl sm:text-2xl lg:text-3xl font-black tracking-tight">--</span>
+                <span class="text-[11px] sm:text-xs font-bold text-slate-400">%</span>
+              </div>
+              <div class="flex items-center gap-1 mt-0.5">
+                <span id="kpi-fat-diff" class="text-[10px] sm:text-xs font-black px-1.5 py-0.5 rounded bg-emerald-500/10 text-emerald-600 dark:text-emerald-400">--</span>
+                <span id="kpi-fat-period" class="text-[9px] sm:text-[10px] text-slate-400">inicio</span>
+              </div>
+            </div>
+          </div>
+
+          <!-- KPI 3: % MÚSCULO -->
+          <div class="bg-white dark:bg-[#16171b] border border-slate-200/90 dark:border-slate-800/90 rounded-2xl p-3 sm:p-4 shadow-sm flex flex-col justify-between hover:border-teal-500/40 transition-colors">
+            <div class="flex items-center justify-between text-slate-500 dark:text-slate-400 mb-1">
+              <span class="text-[10px] sm:text-xs font-bold uppercase tracking-wider">% Músculo</span>
+              <div class="w-5 h-5 sm:w-6 sm:h-6 rounded-lg bg-teal-500/10 text-teal-600 dark:text-teal-400 flex items-center justify-center">
+                <svg class="w-3 h-3 sm:w-3.5 sm:h-3.5" fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M3.75 13.5l10.5-11.25L12 10.5h8.25L9.75 21.75 12 13.5H3.75z"/></svg>
+              </div>
+            </div>
+            <div>
+              <div class="flex items-baseline gap-1">
+                <span id="kpi-muscle-val" class="text-xl sm:text-2xl lg:text-3xl font-black tracking-tight">--</span>
+                <span class="text-[11px] sm:text-xs font-bold text-slate-400">%</span>
+              </div>
+              <div class="flex items-center gap-1 mt-0.5">
+                <span id="kpi-muscle-diff" class="text-[10px] sm:text-xs font-black px-1.5 py-0.5 rounded bg-teal-500/10 text-teal-600 dark:text-teal-400">--</span>
+                <span id="kpi-muscle-period" class="text-[9px] sm:text-[10px] text-slate-400">inicio</span>
+              </div>
+            </div>
+          </div>
+
+          <!-- KPI 4: GRASA VISCERAL -->
+          <div class="bg-white dark:bg-[#16171b] border border-slate-200/90 dark:border-slate-800/90 rounded-2xl p-3 sm:p-4 shadow-sm flex flex-col justify-between hover:border-blue-500/40 transition-colors">
+            <div class="flex items-center justify-between text-slate-500 dark:text-slate-400 mb-1">
+              <span class="text-[10px] sm:text-xs font-bold uppercase tracking-wider">G. Visceral</span>
+              <div class="w-5 h-5 sm:w-6 sm:h-6 rounded-lg bg-blue-500/10 text-blue-600 dark:text-blue-400 flex items-center justify-center">
+                <svg class="w-3 h-3 sm:w-3.5 sm:h-3.5" fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M9 12.75L11.25 15 15 9.75m-3-7.036A11.959 11.959 0 013.598 6 11.99 11.99 0 003 9.749c0 5.592 3.824 10.29 9 11.623 5.176-1.332 9-6.03 9-11.622 0-1.31-.21-2.571-.598-3.751h-.152c-3.196 0-6.1-1.248-8.25-3.285z"/></svg>
+              </div>
+            </div>
+            <div>
+              <div class="flex items-baseline gap-1">
+                <span id="kpi-visceral-val" class="text-xl sm:text-2xl lg:text-3xl font-black tracking-tight">--</span>
+                <span class="text-[11px] sm:text-xs font-bold text-slate-400">niv</span>
+              </div>
+              <div class="flex items-center gap-1 mt-0.5">
+                <span id="kpi-visceral-diff" class="text-[10px] sm:text-xs font-black px-1.5 py-0.5 rounded bg-emerald-500/10 text-emerald-600 dark:text-emerald-400">--</span>
+                <span id="kpi-visceral-period" class="text-[9px] sm:text-[10px] text-slate-400">Saludable</span>
+              </div>
+            </div>
+          </div>
+
+          <!-- KPI 5: EDAD METABÓLICA -->
+          <div class="bg-white dark:bg-[#16171b] border border-slate-200/90 dark:border-slate-800/90 rounded-2xl p-3 sm:p-4 shadow-sm flex flex-col justify-between hover:border-purple-500/40 transition-colors">
+            <div class="flex items-center justify-between text-slate-500 dark:text-slate-400 mb-1">
+              <span class="text-[10px] sm:text-xs font-bold uppercase tracking-wider">Edad Metab.</span>
+              <div class="w-5 h-5 sm:w-6 sm:h-6 rounded-lg bg-purple-500/10 text-purple-600 dark:text-purple-400 flex items-center justify-center">
+                <svg class="w-3 h-3 sm:w-3.5 sm:h-3.5" fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M12 6v6h4.5m4.5 0a9 9 0 11-18 0 9 9 0 0118 0z"/></svg>
+              </div>
+            </div>
+            <div>
+              <div class="flex items-baseline gap-1">
+                <span id="kpi-age-val" class="text-xl sm:text-2xl lg:text-3xl font-black tracking-tight">--</span>
+                <span class="text-[11px] sm:text-xs font-bold text-slate-400">años</span>
+              </div>
+              <div class="flex items-center gap-1 mt-0.5">
+                <span id="kpi-age-diff" class="text-[10px] sm:text-xs font-black px-1.5 py-0.5 rounded bg-purple-500/10 text-purple-600 dark:text-purple-400">--</span>
+                <span id="kpi-age-period" class="text-[9px] sm:text-[10px] text-slate-400">rejuven.</span>
+              </div>
+            </div>
+          </div>
+
+          <!-- KPI 6: % AGUA -->
+          <div class="bg-white dark:bg-[#16171b] border border-slate-200/90 dark:border-slate-800/90 rounded-2xl p-3 sm:p-4 shadow-sm flex flex-col justify-between hover:border-sky-500/40 transition-colors">
+            <div class="flex items-center justify-between text-slate-500 dark:text-slate-400 mb-1">
+              <span class="text-[10px] sm:text-xs font-bold uppercase tracking-wider">% Agua</span>
+              <div class="w-5 h-5 sm:w-6 sm:h-6 rounded-lg bg-sky-500/10 text-sky-600 dark:text-sky-400 flex items-center justify-center">
+                <svg class="w-3 h-3 sm:w-3.5 sm:h-3.5" fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M19.5 14.25v-2.625a3.375 3.375 0 00-3.375-3.375h-1.5A1.125 1.125 0 0113.5 7.125v-1.5a3.375 3.375 0 00-3.375-3.375H8.25m2.25 0H5.625c-.621 0-1.125.504-1.125 1.125v17.25c0 .621.504 1.125 1.125 1.125h12.75c.621 0 1.125-.504 1.125-1.125V11.25a9 9 0 00-9-9z"/></svg>
+              </div>
+            </div>
+            <div>
+              <div class="flex items-baseline gap-1">
+                <span id="kpi-water-val" class="text-xl sm:text-2xl lg:text-3xl font-black tracking-tight">--</span>
+                <span class="text-[11px] sm:text-xs font-bold text-slate-400">%</span>
+              </div>
+              <div class="flex items-center gap-1 mt-0.5">
+                <span id="kpi-water-diff" class="text-[10px] sm:text-xs font-black px-1.5 py-0.5 rounded bg-sky-500/10 text-sky-600 dark:text-sky-400">--</span>
+                <span id="kpi-water-period" class="text-[9px] sm:text-[10px] text-slate-400">inicio</span>
+              </div>
+            </div>
+          </div>
+
+        </div>
+
+        <!-- MAIN CHART SECTION -->
+        <div class="bg-white dark:bg-[#16171b] border border-slate-200 dark:border-slate-800 rounded-2xl sm:rounded-3xl p-3.5 sm:p-6 shadow-sm">
+          
+          <!-- Chart Header & Horizontal Scrollable Tabs -->
+          <div class="flex flex-col gap-3 pb-3 sm:pb-4 border-b border-slate-100 dark:border-slate-800/80">
+            <div>
+              <h3 id="chart-title" class="text-sm sm:text-lg font-bold tracking-tight">Evolución de Peso, Media (7d) & Meta</h3>
+              <p id="chart-subtitle" class="text-[11px] sm:text-xs text-slate-500 dark:text-slate-400 mt-0.5 line-clamp-1">
+                Valores diarios con línea de tendencia suavizada y meta fijada.
+              </p>
+            </div>
+
+            <!-- Tab Switcher -->
+            <div class="flex items-center gap-1 bg-slate-100 dark:bg-slate-900/90 p-1 rounded-xl overflow-x-auto no-scrollbar touch-scroll w-full" id="chart-tabs">
+              <button data-chart="weight" class="chart-tab-btn active shrink-0 px-2.5 sm:px-3 py-1.5 text-xs font-semibold rounded-lg bg-white dark:bg-slate-800 text-slate-900 dark:text-white shadow-sm transition-all whitespace-nowrap">
+                Peso & Media
+              </button>
+              <button data-chart="fat" class="chart-tab-btn shrink-0 px-2.5 sm:px-3 py-1.5 text-xs font-medium rounded-lg text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white transition-all whitespace-nowrap">
+                % Grasa & Media
+              </button>
+              <button data-chart="composition" class="chart-tab-btn shrink-0 px-2.5 sm:px-3 py-1.5 text-xs font-medium rounded-lg text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white transition-all whitespace-nowrap">
+                Composición (%)
+              </button>
+              <button data-chart="mass_kg" class="chart-tab-btn shrink-0 px-2.5 sm:px-3 py-1.5 text-xs font-medium rounded-lg text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white transition-all whitespace-nowrap">
+                Grasa vs Magra (kg)
+              </button>
+              <button data-chart="metabolic" class="chart-tab-btn shrink-0 px-2.5 sm:px-3 py-1.5 text-xs font-medium rounded-lg text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white transition-all whitespace-nowrap">
+                Salud Metabólica
+              </button>
+              <button data-chart="bmr" class="chart-tab-btn shrink-0 px-2.5 sm:px-3 py-1.5 text-xs font-medium rounded-lg text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white transition-all whitespace-nowrap">
+                TMB (kcal)
+              </button>
+            </div>
+          </div>
+
+          <!-- Canvas Container -->
+          <div class="mt-3 sm:mt-5 relative h-[280px] sm:h-[380px] w-full">
+            <canvas id="mainChart"></canvas>
+          </div>
+        </div>
+
+        <!-- TARGET GOALS TRACKING WIDGET (WEIGHT: 77kg, FAT: 17.5%) -->
+        <div class="bg-white dark:bg-[#16171b] border border-slate-200 dark:border-slate-800 rounded-2xl sm:rounded-3xl p-3.5 sm:p-5 shadow-sm">
+          <div class="flex items-center justify-between mb-3">
+            <div class="flex items-center gap-2">
+              <div class="w-6 h-6 rounded-lg bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 flex items-center justify-center">
+                <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M15 10.5a3 3 0 11-6 0 3 3 0 016 0z"/><path stroke-linecap="round" stroke-linejoin="round" d="M19.5 10.5c0 7.142-7.5 11.25-7.5 11.25S4.5 17.642 4.5 10.5a7.5 7.5 0 1115 0z"/></svg>
+              </div>
+              <div>
+                <h3 class="text-xs sm:text-sm font-bold tracking-tight">Objetivos & Metas Fijas</h3>
+              </div>
+            </div>
+            <button id="btn-edit-goals" class="text-[11px] font-semibold text-emerald-600 dark:text-emerald-400 hover:underline flex items-center gap-1">
+              <svg class="w-3 h-3" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M16.862 4.487l1.687-1.688a1.875 1.875 0 112.652 2.652L10.582 16.07a4.5 4.5 0 01-1.897 1.13L6 18l.8-2.685a4.5 4.5 0 011.13-1.897l8.932-8.931zm0 0L19.5 7.125M18 14v4.75A2.25 2.25 0 0115.75 21H5.25A2.25 2.25 0 015.25 6H10"/></svg>
+              <span>Ajustar Metas</span>
+            </button>
+          </div>
+
+          <div class="grid grid-cols-1 md:grid-cols-2 gap-3">
+            
+            <!-- GOAL 1: PESO -->
+            <div class="p-3 sm:p-4 rounded-xl bg-slate-50 dark:bg-slate-900/60 border border-slate-100 dark:border-slate-800 flex flex-col justify-between">
+              <div class="flex items-center justify-between text-xs mb-1.5">
+                <span class="font-bold text-slate-800 dark:text-slate-200">🎯 Meta Peso: <span id="goal-weight-target-label" class="text-emerald-600 dark:text-emerald-400 font-extrabold">77.0 kg</span></span>
+                <span id="goal-weight-pct" class="font-black text-emerald-600 dark:text-emerald-400 bg-emerald-500/10 px-2 py-0.5 rounded-md text-[11px]">75.2%</span>
+              </div>
+              
+              <!-- Progress Bar -->
+              <div class="w-full bg-slate-200 dark:bg-slate-800 h-2.5 rounded-full overflow-hidden mb-2">
+                <div id="goal-weight-bar" class="bg-gradient-to-r from-emerald-500 to-teal-400 h-full rounded-full transition-all duration-500" style="width: 75.2%;"></div>
+              </div>
+
+              <div class="flex items-center justify-between text-[11px] text-slate-500 dark:text-slate-400">
+                <span>Inicio: <strong class="text-slate-700 dark:text-slate-300">87.1kg</strong> → Hoy: <strong class="text-slate-700 dark:text-slate-300">79.5kg</strong></span>
+                <span>Faltan: <strong id="goal-weight-remaining" class="text-emerald-600 dark:text-emerald-400 font-bold">2.50 kg</strong></span>
+              </div>
+              <div id="goal-weight-forecast" class="mt-1 text-[10px] text-slate-400">
+                ⏱️ Llegada estimada al ritmo actual: <strong class="text-slate-700 dark:text-slate-300">~22 días</strong> (mediados de Septiembre)
+              </div>
+            </div>
+
+            <!-- GOAL 2: % GRASA -->
+            <div class="p-3 sm:p-4 rounded-xl bg-slate-50 dark:bg-slate-900/60 border border-slate-100 dark:border-slate-800 flex flex-col justify-between">
+              <div class="flex items-center justify-between text-xs mb-1.5">
+                <span class="font-bold text-slate-800 dark:text-slate-200">🎯 Meta % Grasa: <span id="goal-fat-target-label" class="text-amber-500 font-extrabold">17.5%</span></span>
+                <span id="goal-fat-pct" class="font-black text-amber-500 bg-amber-500/10 px-2 py-0.5 rounded-md text-[11px]">47.3%</span>
+              </div>
+              
+              <!-- Progress Bar -->
+              <div class="w-full bg-slate-200 dark:bg-slate-800 h-2.5 rounded-full overflow-hidden mb-2">
+                <div id="goal-fat-bar" class="bg-gradient-to-r from-amber-500 to-orange-400 h-full rounded-full transition-all duration-500" style="width: 47.3%;"></div>
+              </div>
+
+              <div class="flex items-center justify-between text-[11px] text-slate-500 dark:text-slate-400">
+                <span>Inicio: <strong class="text-slate-700 dark:text-slate-300">24.9%</strong> → Hoy: <strong class="text-slate-700 dark:text-slate-300">21.4%</strong></span>
+                <span>Faltan: <strong id="goal-fat-remaining" class="text-amber-500 font-bold">-3.9%</strong></span>
+              </div>
+              <div class="mt-1 text-[10px] text-slate-400">
+                💪 Recomposición: Grasa pura perdida: <strong id="goal-fat-lost-summary" class="text-emerald-600 dark:text-emerald-400">-4.68 kg</strong>
+              </div>
+            </div>
+
+          </div>
+        </div>
+
+        <!-- MILESTONES & PLATEAU INTELLIGENCE BAR -->
+        <div class="grid grid-cols-2 lg:grid-cols-4 gap-2.5 sm:gap-3.5">
+          <!-- Milestone 1: Mínimo Histórico -->
+          <div class="bg-white dark:bg-[#16171b] border border-slate-200 dark:border-slate-800 rounded-2xl p-2.5 sm:p-3.5 flex items-center gap-2.5 sm:gap-3 shadow-sm">
+            <div class="w-8 h-8 sm:w-9 sm:h-9 rounded-xl bg-amber-500/10 text-amber-500 flex items-center justify-center shrink-0">
+              <span class="text-sm sm:text-base">🏆</span>
+            </div>
+            <div class="min-w-0">
+              <span class="text-[9px] sm:text-[10px] uppercase font-bold text-slate-400 tracking-wider block">Mínimo Histórico</span>
+              <div class="flex items-baseline gap-1 sm:gap-1.5 mt-0.5">
+                <span id="ms-lowest-weight" class="text-sm sm:text-base font-extrabold text-slate-900 dark:text-white">--</span>
+                <span id="ms-lowest-date" class="text-[9px] sm:text-[10px] text-slate-400 font-medium truncate">--</span>
+              </div>
+            </div>
+          </div>
+
+          <!-- Milestone 2: Barreras Superadas -->
+          <div class="bg-white dark:bg-[#16171b] border border-slate-200 dark:border-slate-800 rounded-2xl p-2.5 sm:p-3.5 flex items-center gap-2.5 sm:gap-3 shadow-sm">
+            <div class="w-8 h-8 sm:w-9 sm:h-9 rounded-xl bg-emerald-500/10 text-emerald-500 flex items-center justify-center shrink-0">
+              <span class="text-sm sm:text-base">🎯</span>
+            </div>
+            <div class="min-w-0">
+              <span class="text-[9px] sm:text-[10px] uppercase font-bold text-slate-400 tracking-wider block">Barreras Rotas</span>
+              <div id="ms-barriers-container" class="flex items-center gap-1 sm:gap-1.5 mt-0.5 flex-wrap">
+                <span class="px-1.5 py-0.5 rounded bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 text-[9px] sm:text-[10px] font-bold">&lt;85kg ✓</span>
+                <span class="px-1.5 py-0.5 rounded bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 text-[9px] sm:text-[10px] font-bold">&lt;80kg ✓</span>
+              </div>
+            </div>
+          </div>
+
+          <!-- Milestone 3: Mejor Semana -->
+          <div class="bg-white dark:bg-[#16171b] border border-slate-200 dark:border-slate-800 rounded-2xl p-2.5 sm:p-3.5 flex items-center gap-2.5 sm:gap-3 shadow-sm">
+            <div class="w-8 h-8 sm:w-9 sm:h-9 rounded-xl bg-blue-500/10 text-blue-500 flex items-center justify-center shrink-0">
+              <span class="text-sm sm:text-base">⚡</span>
+            </div>
+            <div class="min-w-0">
+              <span class="text-[9px] sm:text-[10px] uppercase font-bold text-slate-400 tracking-wider block">Mejor Semana</span>
+              <div class="flex items-baseline gap-1 sm:gap-1.5 mt-0.5">
+                <span id="ms-best-week-val" class="text-sm sm:text-base font-extrabold text-blue-600 dark:text-blue-400">--</span>
+                <span id="ms-best-week-name" class="text-[9px] sm:text-[10px] text-slate-400 font-medium truncate">--</span>
+              </div>
+            </div>
+          </div>
+
+          <!-- Milestone 4: Detección de Meseta / Ritmo 14d -->
+          <div id="plateau-container" class="bg-white dark:bg-[#16171b] border border-slate-200 dark:border-slate-800 rounded-2xl p-2.5 sm:p-3.5 flex items-center gap-2.5 sm:gap-3 shadow-sm">
+            <div id="plateau-icon" class="w-8 h-8 sm:w-9 sm:h-9 rounded-xl bg-emerald-500/10 text-emerald-500 flex items-center justify-center shrink-0">
+              <span class="text-sm sm:text-base">📉</span>
+            </div>
+            <div class="min-w-0 flex-1">
+              <div class="flex items-center gap-1.5 justify-between sm:justify-start">
+                <span class="text-[9px] sm:text-[10px] uppercase font-bold text-slate-400 tracking-wider">Ritmo 14d</span>
+                <span id="plateau-status-badge" class="px-1.5 py-0.2 text-[9px] font-bold rounded bg-emerald-500/10 text-emerald-600 dark:text-emerald-400">Activo</span>
+              </div>
+              <div id="plateau-insight-text" class="text-[11px] sm:text-xs font-semibold text-slate-800 dark:text-slate-200 truncate mt-0.5" title="Ritmo continuo">
+                --
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- TWO COLUMN SECTION: WEEKLY BREAKDOWN & BIOMETRIC ANALYSIS -->
+        <div class="grid grid-cols-1 lg:grid-cols-3 gap-4 sm:gap-6">
+          
+          <!-- WEEK BY WEEK EVOLUTION TABLE (2 cols) -->
+          <div class="lg:col-span-2 bg-white dark:bg-[#16171b] border border-slate-200 dark:border-slate-800 rounded-2xl sm:rounded-3xl p-3.5 sm:p-6 shadow-sm">
+            <div class="flex items-center justify-between mb-3 sm:mb-4">
+              <div>
+                <h3 class="text-sm sm:text-base font-bold tracking-tight">Desglose Semana a Semana</h3>
+                <p class="text-[11px] sm:text-xs text-slate-500 dark:text-slate-400">Evolución de las 10 semanas transcurridas</p>
+              </div>
+              <span id="badge-total-weeks" class="text-[10px] sm:text-xs font-semibold text-emerald-600 dark:text-emerald-400 bg-emerald-500/10 px-2 py-0.5 rounded-lg border border-emerald-500/20">
+                10 semanas
+              </span>
+            </div>
+
+            <div class="overflow-x-auto -mx-3.5 sm:mx-0 no-scrollbar touch-scroll">
+              <table class="w-full text-left text-xs whitespace-nowrap min-w-[340px]">
+                <thead>
+                  <tr class="border-b border-slate-200 dark:border-slate-800 text-slate-400 dark:text-slate-500 font-semibold uppercase tracking-wider text-[10px]">
+                    <th class="py-2 px-3">Semana</th>
+                    <th class="py-2 px-3 text-right">Peso Fin</th>
+                    <th class="py-2 px-3 text-right">Cambio</th>
+                    <th class="py-2 px-3 text-right">% Grasa</th>
+                    <th class="py-2 px-3 text-right hidden sm:table-cell">% Músculo</th>
+                  </tr>
+                </thead>
+                <tbody id="weekly-table-body" class="divide-y divide-slate-100 dark:divide-slate-800/60 font-medium">
+                  <!-- Generated dynamically -->
+                </tbody>
+              </table>
+            </div>
+          </div>
+
+          <!-- COMPARATIVE "DÍA 1 VS HOY" & RECOMPOSITION CARD (1 col) -->
+          <div class="bg-white dark:bg-[#16171b] border border-slate-200 dark:border-slate-800 rounded-2xl sm:rounded-3xl p-4 sm:p-5 shadow-sm flex flex-col justify-between">
+            <div>
+              <div class="flex items-center justify-between mb-2.5">
+                <div class="flex items-center gap-1.5 text-emerald-600 dark:text-emerald-400 font-bold text-xs sm:text-sm">
+                  <svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M9 12.75L11.25 15 15 9.75M21 12c0 1.268-.63 2.39-1.593 3.068a3.745 3.745 0 01-1.043 3.296 3.745 3.745 0 01-3.296 1.043A3.745 3.745 0 0112 21c-1.268 0-2.39-.63-3.068-1.593a3.746 3.746 0 01-3.296-1.043 3.745 3.745 0 01-1.043-3.296A3.745 3.745 0 013 12c0-1.268.63-2.39 1.593-3.068a3.745 3.745 0 011.043-3.296 3.746 3.746 0 013.296-1.043A3.746 3.746 0 0112 3c1.268 0 2.39.63 3.068 1.593a3.746 3.746 0 013.296 1.043 3.746 3.746 0 011.043 3.296A3.745 3.745 0 0121 12z"/></svg>
+                  <span>Transformación: Día 1 vs Hoy</span>
+                </div>
+                <span class="text-[10px] font-semibold text-slate-400 bg-slate-100 dark:bg-slate-800 px-2 py-0.5 rounded-md">Foto Finish</span>
+              </div>
+
+              <p id="recomp-summary-text" class="text-[11px] sm:text-xs text-slate-500 dark:text-slate-400 leading-relaxed mb-3">
+                El <strong id="recomp-fat-pct" class="text-slate-700 dark:text-slate-300">--%</strong> del peso perdido es grasa pura, elevando el músculo relativo al <strong id="recomp-muscle-val" class="text-slate-700 dark:text-slate-300">--%</strong>.
+              </p>
+
+              <!-- P-Ratio Partitioning Bar -->
+              <div class="mb-3.5 p-2.5 rounded-xl bg-slate-50 dark:bg-slate-900/60 border border-slate-100 dark:border-slate-800">
+                <div class="flex items-center justify-between text-[11px] mb-1 font-semibold">
+                  <span class="text-emerald-600 dark:text-emerald-400 flex items-center gap-1">
+                    <span class="w-2 h-2 rounded-full bg-emerald-500"></span> Grasa: <span id="pratio-fat-label">--%</span>
+                  </span>
+                  <span class="text-slate-500 dark:text-slate-400 flex items-center gap-1">
+                    <span class="w-2 h-2 rounded-full bg-slate-400"></span> Magra/Agua: <span id="pratio-lean-label">--%</span>
+                  </span>
+                </div>
+                <div class="w-full bg-slate-200 dark:bg-slate-800 h-2 rounded-full overflow-hidden flex">
+                  <div id="pratio-fat-bar" class="bg-emerald-500 h-full transition-all duration-500" style="width: 62%;"></div>
+                  <div id="pratio-lean-bar" class="bg-slate-400 dark:bg-slate-600 h-full transition-all duration-500" style="width: 38%;"></div>
+                </div>
+              </div>
+
+              <!-- Head to head metric lines -->
+              <div class="space-y-1.5 text-xs">
+                <div class="p-2 rounded-xl bg-slate-50 dark:bg-slate-900/60 border border-slate-100 dark:border-slate-800 flex items-center justify-between">
+                  <span class="text-slate-500 text-[11px]">Masa Grasa</span>
+                  <span id="h2h-fat-kg" class="font-bold text-emerald-600 dark:text-emerald-400">-- → -- (--kg)</span>
+                </div>
+                <div class="p-2 rounded-xl bg-slate-50 dark:bg-slate-900/60 border border-slate-100 dark:border-slate-800 flex items-center justify-between">
+                  <span class="text-slate-500 text-[11px]">% Grasa</span>
+                  <span id="h2h-fat-pct" class="font-bold text-emerald-600 dark:text-emerald-400">-- → -- (--%)</span>
+                </div>
+                <div class="p-2 rounded-xl bg-slate-50 dark:bg-slate-900/60 border border-slate-100 dark:border-slate-800 flex items-center justify-between">
+                  <span class="text-slate-500 text-[11px]">Grasa Visceral</span>
+                  <span id="h2h-visceral" class="font-bold text-blue-600 dark:text-blue-400">-- → -- (-- niv)</span>
+                </div>
+                <div class="p-2 rounded-xl bg-slate-50 dark:bg-slate-900/60 border border-slate-100 dark:border-slate-800 flex items-center justify-between">
+                  <span class="text-slate-500 text-[11px]">Edad Metabólica</span>
+                  <span id="h2h-metabolic-age" class="font-bold text-purple-600 dark:text-purple-400">-- → -- (-- años)</span>
+                </div>
+              </div>
+
+              <!-- Visual Equivalences Chips -->
+              <div class="mt-3 pt-2.5 border-t border-slate-100 dark:border-slate-800/80">
+                <span class="text-[10px] uppercase font-bold text-slate-400 tracking-wider block mb-1.5">Equivalencias de Grasa Eliminada</span>
+                <div class="grid grid-cols-2 gap-2 text-[10px]">
+                  <div class="p-1.5 rounded-lg bg-emerald-500/10 text-emerald-700 dark:text-emerald-300 font-semibold flex items-center gap-1">
+                    <span>🧈</span>
+                    <span id="equiv-butter" class="truncate">~20.5 paq. mantequilla</span>
+                  </div>
+                  <div class="p-1.5 rounded-lg bg-amber-500/10 text-amber-700 dark:text-amber-300 font-semibold flex items-center gap-1">
+                    <span>🔥</span>
+                    <span id="equiv-calories" class="truncate">~39.500 kcal déficit</span>
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            <div class="mt-3 pt-2 border-t border-slate-100 dark:border-slate-800/80 flex items-center justify-between text-[10px] text-slate-400">
+              <span>Báscula: <strong class="text-slate-600 dark:text-slate-300">RENPHO Smart</strong></span>
+              <span id="equiv-quality-badge" class="font-bold text-emerald-600 dark:text-emerald-400">Pérdida de Alta Calidad</span>
+            </div>
+          </div>
+
+        </div>
+
+        <!-- SECONDARY RENPHO BIOMETRICS -->
+        <div class="bg-white dark:bg-[#16171b] p-3 sm:p-4 rounded-2xl border border-slate-200 dark:border-slate-800 shadow-sm">
+          <div class="text-[11px] font-bold uppercase tracking-wider text-slate-400 mb-2 px-1">Métricas Biométricas RENPHO</div>
+          <div class="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-7 gap-2 sm:gap-3 text-xs">
+            
+            <div class="p-2.5 rounded-xl bg-slate-50 dark:bg-slate-900/60 border border-slate-100 dark:border-slate-800/60">
+              <span class="text-slate-400 text-[10px] font-medium block">Masa Muscular</span>
+              <div class="flex items-baseline gap-1 mt-0.5">
+                <span id="sec-muscle-mass" class="text-sm sm:text-base font-bold">59.39</span>
+                <span class="text-slate-400 text-[10px]">kg</span>
+              </div>
+              <span id="sec-muscle-diff" class="text-[9px] text-slate-500 block truncate">59.39 kg</span>
+            </div>
+
+            <div class="p-2.5 rounded-xl bg-slate-50 dark:bg-slate-900/60 border border-slate-100 dark:border-slate-800/60">
+              <span class="text-slate-400 text-[10px] font-medium block">Peso Sin Grasa</span>
+              <div class="flex items-baseline gap-1 mt-0.5">
+                <span id="sec-lean-mass" class="text-sm sm:text-base font-bold">62.49</span>
+                <span class="text-slate-400 text-[10px]">kg</span>
+              </div>
+              <span id="sec-lean-diff" class="text-[9px] text-slate-500 block truncate">62.49 kg</span>
+            </div>
+
+            <div class="p-2.5 rounded-xl bg-slate-50 dark:bg-slate-900/60 border border-slate-100 dark:border-slate-800/60">
+              <span class="text-slate-400 text-[10px] font-medium block">Grasa Subcutánea</span>
+              <div class="flex items-baseline gap-1 mt-0.5">
+                <span id="sec-subcut-fat" class="text-sm sm:text-base font-bold">19.4</span>
+                <span class="text-slate-400 text-[10px]">%</span>
+              </div>
+              <span id="sec-subcut-diff" class="text-[9px] text-emerald-600 dark:text-emerald-400 font-bold block truncate">-2.9%</span>
+            </div>
+
+            <div class="p-2.5 rounded-xl bg-slate-50 dark:bg-slate-900/60 border border-slate-100 dark:border-slate-800/60">
+              <span class="text-slate-400 text-[10px] font-medium block">Proteína</span>
+              <div class="flex items-baseline gap-1 mt-0.5">
+                <span id="sec-protein" class="text-sm sm:text-base font-bold">17.9</span>
+                <span class="text-slate-400 text-[10px]">%</span>
+              </div>
+              <span id="sec-protein-diff" class="text-[9px] text-teal-600 dark:text-teal-400 font-bold block truncate">+0.8%</span>
+            </div>
+
+            <div class="p-2.5 rounded-xl bg-slate-50 dark:bg-slate-900/60 border border-slate-100 dark:border-slate-800/60">
+              <span class="text-slate-400 text-[10px] font-medium block">Masa Ósea</span>
+              <div class="flex items-baseline gap-1 mt-0.5">
+                <span id="sec-bone" class="text-sm sm:text-base font-bold">3.10</span>
+                <span class="text-slate-400 text-[10px]">kg</span>
+              </div>
+              <span id="sec-bone-diff" class="text-[9px] text-slate-500 block truncate">3.10 kg</span>
+            </div>
+
+            <div class="p-2.5 rounded-xl bg-slate-50 dark:bg-slate-900/60 border border-slate-100 dark:border-slate-800/60">
+              <span class="text-slate-400 text-[10px] font-medium block">TMB Basal / IMC</span>
+              <div class="flex items-baseline gap-1 mt-0.5">
+                <span id="sec-bmr" class="text-sm sm:text-base font-bold">1708</span>
+                <span class="text-slate-400 text-[10px]">kcal</span>
+              </div>
+              <span class="text-[9px] text-slate-500 block">IMC: <strong id="sec-bmi" class="text-slate-700 dark:text-slate-300">22.5</strong></span>
+            </div>
+
+            <div class="p-2.5 rounded-xl bg-slate-50 dark:bg-slate-900/60 border border-slate-100 dark:border-slate-800/60">
+              <div class="flex items-center justify-between">
+                <span class="text-slate-400 text-[10px] font-medium block">Índice FFMI</span>
+                <span id="sec-ffmi-badge" class="text-[9px] font-bold px-1.5 py-0.2 rounded bg-emerald-500/10 text-emerald-600 dark:text-emerald-400">Bueno</span>
+              </div>
+              <div class="flex items-baseline gap-1 mt-0.5">
+                <span id="sec-ffmi-val" class="text-sm sm:text-base font-bold">--</span>
+                <span class="text-slate-400 text-[10px]">pts</span>
+              </div>
+              <span id="sec-ffmi-diff" class="text-[9px] text-slate-500 block truncate">norm: --</span>
+            </div>
+
+          </div>
+        </div>
+
+        <!-- FULL HISTORICAL LOG SECTION -->
+        <div class="bg-white dark:bg-[#16171b] border border-slate-200 dark:border-slate-800 rounded-2xl sm:rounded-3xl p-3.5 sm:p-6 shadow-sm">
+          <div class="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2.5 mb-3 sm:mb-4">
+            <div>
+              <h3 class="text-sm sm:text-base font-bold tracking-tight">Historial Completo de Pesajes</h3>
+              <p class="text-[11px] sm:text-xs text-slate-500 dark:text-slate-400">Registro cronológico de todas las mediciones</p>
+            </div>
+            
+            <div>
+              <input 
+                type="text" 
+                id="search-history" 
+                placeholder="Filtrar por fecha..." 
+                class="w-full sm:w-48 px-3 py-2 text-base sm:text-xs rounded-xl border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-900 text-slate-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-emerald-500"
+              />
+            </div>
+          </div>
+
+          <!-- Mobile Card List View -->
+          <div id="history-mobile-list" class="block sm:hidden space-y-2 max-h-[440px] overflow-y-auto touch-scroll pr-1">
+            <!-- Rendered via JS -->
+          </div>
+
+          <!-- Desktop Table View -->
+          <div class="hidden sm:block overflow-x-auto -mx-3.5 sm:mx-0 max-h-[460px] overflow-y-auto touch-scroll">
+            <table class="w-full text-left text-xs whitespace-nowrap">
+              <thead class="sticky top-0 bg-white dark:bg-[#16171b] z-10 border-b border-slate-200 dark:border-slate-800 text-slate-400 dark:text-slate-500 font-semibold uppercase tracking-wider text-[10px]">
+                <tr>
+                  <th class="py-2.5 px-3">Fecha & Hora</th>
+                  <th class="py-2.5 px-3 text-right">Peso (kg)</th>
+                  <th class="py-2.5 px-3 text-right">Variación</th>
+                  <th class="py-2.5 px-3 text-right">IMC</th>
+                  <th class="py-2.5 px-3 text-right">% Grasa</th>
+                  <th class="py-2.5 px-3 text-right">% Músculo</th>
+                  <th class="py-2.5 px-3 text-right">M. Músculo (kg)</th>
+                  <th class="py-2.5 px-3 text-right">G. Visceral</th>
+                  <th class="py-2.5 px-3 text-right">G. Subcut (%)</th>
+                  <th class="py-2.5 px-3 text-right">% Agua</th>
+                  <th class="py-2.5 px-3 text-right">% Prot</th>
+                  <th class="py-2.5 px-3 text-right">M. Grasa (kg)</th>
+                  <th class="py-2.5 px-3 text-right">M. Magra (kg)</th>
+                  <th class="py-2.5 px-3 text-right">TMB (kcal)</th>
+                  <th class="py-2.5 px-3 text-right">Edad Metab</th>
+                  <th class="py-2.5 px-3 text-center">Acción</th>
+                </tr>
+              </thead>
+              <tbody id="history-table-body" class="divide-y divide-slate-100 dark:divide-slate-800/60 font-medium">
+                <!-- Generated dynamically -->
+              </tbody>
+            </table>
+          </div>
+        </div>
+
+      </main>
+
+      <!-- FOOTER -->
+      <footer class="mt-auto border-t border-slate-200 dark:border-slate-800/80 py-4 sm:py-6 px-4 text-center text-[11px] text-slate-400">
+        <p><span id="footer-user-name">{defaultUserName}</span> · Fit Dashboard · Datos almacenados localmente · Sin base de datos</p>
+      </footer>
+
+    </div>
+
+    <!-- MODAL: REPORT IMAGE EXPORT -->
+    <div id="modal-report" class="hidden fixed inset-0 z-50 bg-slate-950/80 backdrop-blur-md flex items-end sm:items-center justify-center p-0 sm:p-4">
+      <div class="bg-white dark:bg-[#18191d] border-t sm:border border-slate-200 dark:border-slate-800 rounded-t-3xl sm:rounded-3xl p-5 sm:p-7 max-w-lg w-full max-h-[92vh] overflow-y-auto shadow-2xl space-y-4">
+        <div class="flex items-center justify-between">
+          <div class="flex items-center gap-2.5">
+            <div class="w-9 h-9 rounded-xl bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 flex items-center justify-center">
+              <svg class="w-5 h-5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M6.827 6.175A2.31 2.31 0 015.186 7.23c-.38.054-.757.112-1.134.175C2.999 7.58 2.25 8.507 2.25 9.574V18a2.25 2.25 0 002.25 2.25h15A2.25 2.25 0 0021.75 18V9.574c0-1.067-.75-1.994-1.802-2.169a47.865 47.865 0 00-1.134-.175 2.31 2.31 0 01-1.64-1.055l-.822-1.316a2.192 2.192 0 00-1.736-1.039 48.774 48.774 0 00-5.232 0 2.192 2.192 0 00-1.736 1.039l-.821 1.316z"/><path stroke-linecap="round" stroke-linejoin="round" d="M16.5 12.75a4.5 4.5 0 11-9 0 4.5 4.5 0 019 0zM18.75 10.5h.008v.008h-.008V10.5z"/></svg>
+            </div>
+            <div>
+              <h3 class="text-base sm:text-lg font-bold">Informe de Evolución</h3>
+              <p class="text-[11px] text-slate-500 dark:text-slate-400">Infografía en imagen de alta resolución</p>
+            </div>
+          </div>
+          <button class="modal-close p-2 rounded-lg text-slate-400 hover:text-slate-600 dark:hover:text-slate-200">
+            <svg class="w-5 h-5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M6 18L18 6M6 6l12 12"/></svg>
+          </button>
+        </div>
+
+        <!-- Preview Canvas Card -->
+        <div class="rounded-2xl overflow-hidden border border-slate-200 dark:border-slate-800 shadow-inner bg-slate-950 flex items-center justify-center p-1">
+          <canvas id="reportCanvas" class="w-full h-auto rounded-xl max-h-[360px] object-contain"></canvas>
+        </div>
+
+        <div class="flex flex-col sm:flex-row items-center gap-2 pt-1">
+          <button 
+            id="btn-share-report" 
+            class="w-full sm:flex-1 py-3 px-4 rounded-xl bg-emerald-600 hover:bg-emerald-500 active:bg-emerald-700 text-white text-xs font-bold shadow-lg shadow-emerald-600/25 transition-all flex items-center justify-center gap-2"
+          >
+            <svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M7.217 10.907a2.25 2.25 0 100 2.186m0-2.186c.18.324.283.696.283 1.093s-.103.77-.283 1.093m0-2.186l9.566-5.314m-9.566 7.5l9.566 5.314m0 0a2.25 2.25 0 103.935 2.186 2.25 2.25 0 00-3.935-2.186zm0-12.814a2.25 2.25 0 103.933-2.185 2.25 2.25 0 00-3.933 2.185z"/></svg>
+            <span>Guardar en Fotos / Compartir</span>
+          </button>
+          
+          <button 
+            id="btn-download-report-png" 
+            class="w-full sm:w-auto py-3 px-4 rounded-xl bg-slate-100 dark:bg-slate-800 hover:bg-slate-200 dark:hover:bg-slate-700 text-slate-800 dark:text-slate-200 text-xs font-bold transition-all flex items-center justify-center gap-1.5"
+          >
+            <svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M3 16.5v2.25A2.25 2.25 0 005.25 21h13.5A2.25 2.25 0 0021 18.75V16.5M16.5 12L12 16.5m0 0L7.5 12m4.5 4.5V3"/></svg>
+            <span>Descargar PNG</span>
+          </button>
+        </div>
+      </div>
+    </div>
+
+    <!-- MODAL: EDIT TARGET GOALS -->
+    <div id="modal-goals" class="hidden fixed inset-0 z-50 bg-slate-950/75 backdrop-blur-sm flex items-end sm:items-center justify-center p-0 sm:p-4">
+      <div class="bg-white dark:bg-[#18191d] border-t sm:border border-slate-200 dark:border-slate-800 rounded-t-3xl sm:rounded-3xl p-5 sm:p-7 max-w-sm w-full shadow-2xl space-y-4">
+        <div class="flex items-center justify-between">
+          <div class="flex items-center gap-2.5">
+            <div class="w-9 h-9 rounded-xl bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 flex items-center justify-center">
+              <svg class="w-5 h-5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M15 10.5a3 3 0 11-6 0 3 3 0 016 0z"/><path stroke-linecap="round" stroke-linejoin="round" d="M19.5 10.5c0 7.142-7.5 11.25-7.5 11.25S4.5 17.642 4.5 10.5a7.5 7.5 0 1115 0z"/></svg>
+            </div>
+            <div>
+              <h3 class="text-base sm:text-lg font-bold">Metas & Perfil</h3>
+              <p class="text-[11px] text-slate-500 dark:text-slate-400">Personaliza tus datos y objetivos</p>
+            </div>
+          </div>
+          <button class="modal-close p-2 rounded-lg text-slate-400 hover:text-slate-600 dark:hover:text-slate-200">
+            <svg class="w-5 h-5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M6 18L18 6M6 6l12 12"/></svg>
+          </button>
+        </div>
+
+        <form id="goals-form" class="space-y-3">
+          <div class="grid grid-cols-1 sm:grid-cols-2 gap-2.5">
+            <div>
+              <label class="block text-xs font-semibold text-slate-600 dark:text-slate-300 mb-1" for="input-user-name">Tu Nombre</label>
+              <input 
+                type="text" 
+                id="input-user-name" 
+                required 
+                placeholder="Tu Nombre"
+                class="w-full px-3.5 py-2.5 text-sm rounded-xl border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-900 text-slate-900 dark:text-white font-bold focus:ring-2 focus:ring-emerald-500"
+              />
+            </div>
+            <div>
+              <label class="block text-xs font-semibold text-slate-600 dark:text-slate-300 mb-1" for="input-user-height">Altura (m)</label>
+              <input 
+                type="number" 
+                step="0.01" 
+                min="1.00" 
+                max="2.50" 
+                id="input-user-height" 
+                required 
+                placeholder="1.88"
+                class="w-full px-3.5 py-2.5 text-sm rounded-xl border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-900 text-slate-900 dark:text-white font-bold focus:ring-2 focus:ring-emerald-500"
+              />
+            </div>
+          </div>
+
+          <div class="grid grid-cols-1 sm:grid-cols-2 gap-2.5">
+            <div>
+              <label class="block text-xs font-semibold text-slate-600 dark:text-slate-300 mb-1" for="input-goal-weight">Meta Peso (kg)</label>
+              <input 
+                type="number" 
+                step="0.1" 
+                id="input-goal-weight" 
+                required 
+                class="w-full px-3.5 py-2.5 text-sm rounded-xl border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-900 text-slate-900 dark:text-white font-bold focus:ring-2 focus:ring-emerald-500"
+              />
+            </div>
+
+            <div>
+              <label class="block text-xs font-semibold text-slate-600 dark:text-slate-300 mb-1" for="input-goal-fat">Meta % Grasa</label>
+              <input 
+                type="number" 
+                step="0.1" 
+                id="input-goal-fat" 
+                required 
+                class="w-full px-3.5 py-2.5 text-sm rounded-xl border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-900 text-slate-900 dark:text-white font-bold focus:ring-2 focus:ring-amber-500"
+              />
+            </div>
+          </div>
+
+          <div class="flex items-center justify-end gap-2.5 pt-2">
+            <button type="button" class="modal-close px-4 py-2.5 text-xs font-medium rounded-xl text-slate-500 hover:bg-slate-100 dark:hover:bg-slate-800">
+              Cancelar
+            </button>
+            <button 
+              type="submit" 
+              class="px-5 py-2.5 text-xs font-semibold rounded-xl bg-emerald-600 hover:bg-emerald-500 text-white shadow-md shadow-emerald-600/20"
+            >
+              Guardar Cambios
+            </button>
+          </div>
+        </form>
+      </div>
+    </div>
+
+    <!-- MODAL: IMPORT RENPHO CSV -->
+    <div id="modal-import" class="hidden fixed inset-0 z-50 bg-slate-950/75 backdrop-blur-sm flex items-end sm:items-center justify-center p-0 sm:p-4">
+      <div class="bg-white dark:bg-[#18191d] border-t sm:border border-slate-200 dark:border-slate-800 rounded-t-3xl sm:rounded-3xl p-5 sm:p-7 max-w-lg w-full max-h-[90vh] overflow-y-auto shadow-2xl space-y-4">
+        <div class="flex items-center justify-between">
+          <div class="flex items-center gap-2.5">
+            <div class="w-9 h-9 rounded-xl bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 flex items-center justify-center">
+              <svg class="w-5 h-5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M12 4.5v15m7.5-7.5h-15"/></svg>
+            </div>
+            <div>
+              <h3 class="text-base sm:text-lg font-bold">Importar CSV de RENPHO</h3>
+              <p class="text-[11px] text-slate-500 dark:text-slate-400">Carga nuevos pesajes desde la App</p>
+            </div>
+          </div>
+          <button class="modal-close p-2 rounded-lg text-slate-400 hover:text-slate-600 dark:hover:text-slate-200">
+            <svg class="w-5 h-5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M6 18L18 6M6 6l12 12"/></svg>
+          </button>
+        </div>
+
+        <!-- Drag & Drop Zone -->
+        <div 
+          id="dropzone" 
+          class="border-2 border-dashed border-slate-200 dark:border-slate-700 hover:border-emerald-500 rounded-2xl p-5 text-center cursor-pointer transition-colors"
+        >
+          <input type="file" id="file-input" accept=".csv,text/csv" class="hidden" />
+          <svg class="w-8 h-8 mx-auto text-slate-400 mb-1.5" fill="none" stroke="currentColor" stroke-width="1.5" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M19.5 14.25v-2.625a3.375 3.375 0 00-3.375-3.375h-1.5A1.125 1.125 0 0113.5 7.125v-1.5a3.375 3.375 0 00-3.375-3.375H8.25m6.75 12l-3-3m0 0l-3 3m3-3v6m-1.5-15H5.625c-.621 0-1.125.504-1.125 1.125v17.25c0 .621.504 1.125 1.125 1.125h12.75c.621 0 1.125-.504 1.125-1.125V11.25a9 9 0 00-9-9z"/></svg>
+          <p class="text-xs font-bold text-slate-700 dark:text-slate-200">Toca para seleccionar tu archivo CSV</p>
+          <p class="text-[10px] text-slate-400 mt-0.5">Exportación estándar de RENPHO</p>
+        </div>
+
+        <div class="relative">
+          <div class="absolute inset-0 flex items-center"><div class="w-full border-t border-slate-200 dark:border-slate-800"></div></div>
+          <div class="relative flex justify-center text-[10px] uppercase font-bold"><span class="bg-white dark:bg-[#18191d] px-2 text-slate-400">O pega el texto CSV</span></div>
+        </div>
+
+        <div>
+          <textarea 
+            id="csv-text-input" 
+            rows="3" 
+            placeholder="Pega aquí el contenido del CSV..." 
+            class="w-full p-3 text-xs rounded-xl border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-900 text-slate-900 dark:text-white font-mono focus:outline-none focus:ring-2 focus:ring-emerald-500"
+          ></textarea>
+        </div>
+
+        <div id="import-preview" class="hidden p-3 rounded-xl bg-emerald-500/10 border border-emerald-500/20 text-emerald-600 dark:text-emerald-400 text-xs font-semibold">
+        </div>
+
+        <div class="flex items-center justify-end gap-2.5 pt-1">
+          <button class="modal-close px-4 py-2.5 text-xs font-medium rounded-xl text-slate-500 hover:bg-slate-100 dark:hover:bg-slate-800">
+            Cancelar
+          </button>
+          <button 
+            id="btn-process-import" 
+            class="px-5 py-2.5 text-xs font-semibold rounded-xl bg-emerald-600 hover:bg-emerald-500 text-white shadow-md shadow-emerald-600/20"
+          >
+            Procesar e Importar
+          </button>
+        </div>
+      </div>
+    </div>
+
+    <!-- MODAL: MANUAL WEIGH-IN -->
+    <div id="modal-manual" class="hidden fixed inset-0 z-50 bg-slate-950/75 backdrop-blur-sm flex items-end sm:items-center justify-center p-0 sm:p-4">
+      <div class="bg-white dark:bg-[#18191d] border-t sm:border border-slate-200 dark:border-slate-800 rounded-t-3xl sm:rounded-3xl p-5 sm:p-7 max-w-lg w-full max-h-[90vh] overflow-y-auto shadow-2xl space-y-4">
+        <div class="flex items-center justify-between">
+          <div class="flex items-center gap-2.5">
+            <div class="w-9 h-9 rounded-xl bg-teal-500/10 text-teal-600 dark:text-teal-400 flex items-center justify-center">
+              <svg class="w-5 h-5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M16.862 4.487l1.687-1.688a1.875 1.875 0 112.652 2.652L10.582 16.07a4.5 4.5 0 01-1.897 1.13L6 18l.8-2.685a4.5 4.5 0 011.13-1.897l8.932-8.931zm0 0L19.5 7.125M18 14v4.75A2.25 2.25 0 0115.75 21H5.25A2.25 2.25 0 013 18.75V8.25A2.25 2.25 0 015.25 6H10"/></svg>
+            </div>
+            <div>
+              <h3 class="text-base sm:text-lg font-bold">Añadir Medición Manual</h3>
+              <p class="text-[11px] text-slate-500 dark:text-slate-400">Registra un pesaje directo</p>
+            </div>
+          </div>
+          <button class="modal-close p-2 rounded-lg text-slate-400 hover:text-slate-600 dark:hover:text-slate-200">
+            <svg class="w-5 h-5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M6 18L18 6M6 6l12 12"/></svg>
+          </button>
+        </div>
+
+        <form id="manual-form" class="space-y-3">
+          <div class="grid grid-cols-2 gap-2.5">
+            <div>
+              <label class="block text-[11px] font-semibold text-slate-500 mb-1">Fecha</label>
+              <input type="date" id="m-date" required class="w-full px-3 py-2.5 text-base sm:text-xs rounded-xl border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-900 text-slate-900 dark:text-white" />
+            </div>
+            <div>
+              <label class="block text-[11px] font-semibold text-slate-500 mb-1">Hora</label>
+              <input type="time" id="m-time" step="1" required class="w-full px-3 py-2.5 text-base sm:text-xs rounded-xl border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-900 text-slate-900 dark:text-white" />
+            </div>
+          </div>
+
+          <div class="grid grid-cols-3 gap-2">
+            <div>
+              <label class="block text-[11px] font-semibold text-slate-500 mb-1">Peso (kg) *</label>
+              <input type="number" step="0.05" id="m-weight" required placeholder="79.20" class="w-full px-3 py-2.5 text-base sm:text-xs rounded-xl border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-900 text-slate-900 dark:text-white font-bold" />
+            </div>
+            <div>
+              <label class="block text-[11px] font-semibold text-slate-500 mb-1">Grasa (%)</label>
+              <input type="number" step="0.1" id="m-fat" placeholder="21.2" class="w-full px-3 py-2.5 text-base sm:text-xs rounded-xl border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-900 text-slate-900 dark:text-white" />
+            </div>
+            <div>
+              <label class="block text-[11px] font-semibold text-slate-500 mb-1">Músculo (%)</label>
+              <input type="number" step="0.1" id="m-muscle" placeholder="50.8" class="w-full px-3 py-2.5 text-base sm:text-xs rounded-xl border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-900 text-slate-900 dark:text-white" />
+            </div>
+          </div>
+
+          <div class="grid grid-cols-3 gap-2">
+            <div>
+              <label class="block text-[11px] font-semibold text-slate-500 mb-1">G. Visceral</label>
+              <input type="number" id="m-visceral" placeholder="6" class="w-full px-3 py-2.5 text-base sm:text-xs rounded-xl border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-900 text-slate-900 dark:text-white" />
+            </div>
+            <div>
+              <label class="block text-[11px] font-semibold text-slate-500 mb-1">Agua (%)</label>
+              <input type="number" step="0.1" id="m-water" placeholder="56.9" class="w-full px-3 py-2.5 text-base sm:text-xs rounded-xl border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-900 text-slate-900 dark:text-white" />
+            </div>
+            <div>
+              <label class="block text-[11px] font-semibold text-slate-500 mb-1">Edad Metab.</label>
+              <input type="number" id="m-age" placeholder="37" class="w-full px-3 py-2.5 text-base sm:text-xs rounded-xl border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-900 text-slate-900 dark:text-white" />
+            </div>
+          </div>
+
+          <div class="flex items-center justify-end gap-2.5 pt-2">
+            <button type="button" class="modal-close px-4 py-2.5 text-xs font-medium rounded-xl text-slate-500 hover:bg-slate-100 dark:hover:bg-slate-800">
+              Cancelar
+            </button>
+            <button 
+              type="submit" 
+              class="px-5 py-2.5 text-xs font-semibold rounded-xl bg-teal-600 hover:bg-teal-500 text-white shadow-md shadow-teal-600/20"
+            >
+              Guardar Medición
+            </button>
+          </div>
+        </form>
+      </div>
+    </div>
+
+    <!-- MODAL: BACKUP & DATA MANAGEMENT -->
+    <div id="modal-export" class="hidden fixed inset-0 z-50 bg-slate-950/75 backdrop-blur-sm flex items-end sm:items-center justify-center p-0 sm:p-4">
+      <div class="bg-white dark:bg-[#18191d] border-t sm:border border-slate-200 dark:border-slate-800 rounded-t-3xl sm:rounded-3xl p-5 sm:p-7 max-w-md w-full shadow-2xl space-y-4">
+        <div class="flex items-center justify-between">
+          <div class="flex items-center gap-2.5">
+            <div class="w-9 h-9 rounded-xl bg-blue-500/10 text-blue-600 dark:text-blue-400 flex items-center justify-center">
+              <svg class="w-5 h-5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M20.25 7.5l-.625 10.632a2.25 2.25 0 01-2.247 2.118H6.622a2.25 2.25 0 01-2.247-2.118L3.75 7.5m8.25 3v6.75m0 0l-3-3m3 3l3-3M3.375 7.5h17.25c.621 0 1.125-.504 1.125-1.125v-1.5c0-.621-.504-1.125-1.125-1.125H3.375c-.621 0-1.125.504-1.125 1.125v1.5c0 .621.504 1.125 1.125 1.125z"/></svg>
+            </div>
+            <div>
+              <h3 class="text-base sm:text-lg font-bold">Gestión & Backup</h3>
+              <p class="text-[11px] text-slate-500 dark:text-slate-400">Exporta o restaura tus datos</p>
+            </div>
+          </div>
+          <button class="modal-close p-2 rounded-lg text-slate-400 hover:text-slate-600 dark:hover:text-slate-200">
+            <svg class="w-5 h-5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M6 18L18 6M6 6l12 12"/></svg>
+          </button>
+        </div>
+
+        <div class="space-y-2.5">
+          <button 
+            id="btn-download-csv" 
+            class="w-full flex items-center justify-between p-3 rounded-xl bg-slate-50 dark:bg-slate-900 hover:bg-slate-100 dark:hover:bg-slate-800 border border-slate-200 dark:border-slate-700 transition-colors text-left"
+          >
+            <div>
+              <div class="text-xs font-bold text-slate-900 dark:text-white">Descargar CSV de RENPHO</div>
+              <div class="text-[10px] text-slate-500">Para hojas de cálculo y copias de seguridad</div>
+            </div>
+            <svg class="w-4 h-4 text-slate-400" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M3 16.5v2.25A2.25 2.25 0 005.25 21h13.5A2.25 2.25 0 0021 18.75V16.5M16.5 12L12 16.5m0 0L7.5 12m4.5 4.5V3"/></svg>
+          </button>
+
+          <button 
+            id="btn-download-json" 
+            class="w-full flex items-center justify-between p-3 rounded-xl bg-slate-50 dark:bg-slate-900 hover:bg-slate-100 dark:hover:bg-slate-800 border border-slate-200 dark:border-slate-700 transition-colors text-left"
+          >
+            <div>
+              <div class="text-xs font-bold text-slate-900 dark:text-white">Descargar JSON Completo</div>
+              <div class="text-[10px] text-slate-500">Estructura completa calculada</div>
+            </div>
+            <svg class="w-4 h-4 text-slate-400" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M3 16.5v2.25A2.25 2.25 0 005.25 21h13.5A2.25 2.25 0 0021 18.75V16.5M16.5 12L12 16.5m0 0L7.5 12m4.5 4.5V3"/></svg>
+          </button>
+
+          <button 
+            id="btn-reset-data" 
+            class="w-full flex items-center justify-between p-3 rounded-xl bg-slate-100 dark:bg-slate-800/80 hover:bg-slate-200 dark:hover:bg-slate-700/80 border border-slate-200 dark:border-slate-700 text-slate-700 dark:text-slate-300 transition-colors text-left"
+          >
+            <div>
+              <div class="text-xs font-bold">Restablecer a Datos Iniciales (Demo)</div>
+              <div class="text-[10px] text-slate-400">Restaura el dataset inicial de demostración</div>
+            </div>
+            <svg class="w-4 h-4 text-slate-400" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M16.023 9.348h4.992v-.001M2.985 19.644v-4.992m0 0h4.992m-4.993 0l3.181 3.183a8.25 8.25 0 0013.803-3.7M4.031 9.865a8.25 8.25 0 0113.803-3.7l3.181 3.182m0-4.991v4.99"/></svg>
+          </button>
+
+          <button 
+            id="btn-clear-all-data" 
+            class="w-full flex items-center justify-between p-3 rounded-xl bg-red-500/5 hover:bg-red-500/10 border border-red-500/20 text-red-600 dark:text-red-400 transition-colors text-left"
+          >
+            <div>
+              <div class="text-xs font-bold">Vaciar Registros / Empezar de Cero</div>
+              <div class="text-[10px] text-red-500/80">Limpia todos los pesajes para importar tu propio CSV</div>
+            </div>
+            <svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M14.74 9l-.346 9m-4.788 0L9.26 9m9.968-3.21c.342.052.682.107 1.022.166m-1.022-.165L18.16 19.673a2.25 2.25 0 01-2.244 2.077H8.084a2.25 2.25 0 01-2.244-2.077L4.772 5.79m14.456 0a48.108 48.108 0 00-3.478-.397m-12 .562c.34-.059.68-.114 1.022-.165m0 0a48.11 48.11 0 013.478-.397m7.5 0v-.916c0-1.18-.91-2.164-2.09-2.201a51.964 51.964 0 00-3.32 0c-1.18.037-2.09 1.022-2.09 2.201v.916m7.5 0a48.667 48.667 0 00-7.5 0"/></svg>
+          </button>
+        </div>
+      </div>
+    </div>
+
+    <!-- CLIENT JAVASCRIPT LOGIC -->
+    <script define:vars={{ initialData, publicAuthHash, publicEnableAuth, defaultUserName }}>
+      const AUTH_HASH = publicAuthHash || "22610a297f0af193879f19dc56f88a7ab2434d7bcfe8f3ad75dc96d3e2f2a994";
+      const ENABLE_AUTH = publicEnableAuth !== false;
+      const AUTH_STORAGE_KEY = "pacoforet_fit_auth_session";
+      const DATA_STORAGE_KEY = "pacoforet_fit_data_records";
+      const GOALS_STORAGE_KEY = "pacoforet_fit_user_goals";
+      const PROFILE_STORAGE_KEY = "pacoforet_fit_user_profile";
+
+      // Default Target Goals & User Profile
+      let userProfile = {
+        name: defaultUserName || "Usuario Demo",
+        height: 1.80,
+        targetWeight: 75.0,
+        targetBodyFat: 18.0
+      };
+
+      let userGoals = {
+        targetWeight: 75.0,
+        targetBodyFat: 18.0
+      };
+
+      function applyUserProfileUI() {
+        const name = userProfile.name || defaultUserName || "Usuario Demo";
+        const headerName = document.getElementById('header-user-name');
+        if (headerName) headerName.textContent = name;
+        const footerName = document.getElementById('footer-user-name');
+        if (footerName) footerName.textContent = name;
+        document.title = `Fit Dashboard | ${name}`;
+        
+        const ffmiLabel = document.getElementById('sec-ffmi-norm-label');
+        if (ffmiLabel) {
+          ffmiLabel.textContent = `Normalizado ${(userProfile.height || 1.80).toFixed(2)} m`;
+        }
+      }
+
+      function loadProfile() {
+        // 1. Backward compatibility: load goals first
+        const storedGoals = localStorage.getItem(GOALS_STORAGE_KEY);
+        if (storedGoals) {
+          try {
+            const parsed = JSON.parse(storedGoals);
+            userProfile.targetWeight = parsed.targetWeight ?? userProfile.targetWeight;
+            userProfile.targetBodyFat = parsed.targetBodyFat ?? userProfile.targetBodyFat;
+          } catch(e) {}
+        }
+        // 2. Load profile
+        const storedProfile = localStorage.getItem(PROFILE_STORAGE_KEY);
+        if (storedProfile) {
+          try {
+            userProfile = Object.assign(userProfile, JSON.parse(storedProfile));
+          } catch(e) {}
+        }
+        userGoals.targetWeight = userProfile.targetWeight;
+        userGoals.targetBodyFat = userProfile.targetBodyFat;
+        applyUserProfileUI();
+      }
+
+      function saveProfile(name, height, weight, fat) {
+        userProfile.name = (name || '').trim() || defaultUserName || "Usuario Demo";
+        userProfile.height = Math.max(1.0, Math.min(2.5, Number(height) || 1.80));
+        userProfile.targetWeight = Number(weight) || 75.0;
+        userProfile.targetBodyFat = Number(fat) || 18.0;
+        userGoals.targetWeight = userProfile.targetWeight;
+        userGoals.targetBodyFat = userProfile.targetBodyFat;
+
+        localStorage.setItem(PROFILE_STORAGE_KEY, JSON.stringify(userProfile));
+        localStorage.setItem(GOALS_STORAGE_KEY, JSON.stringify(userGoals));
+        applyUserProfileUI();
+        renderDashboard();
+        syncToCloud(true);
+      }
+
+      // Backward compatible aliases
+      function loadGoals() {
+        loadProfile();
+      }
+      function saveGoals(weight, fat) {
+        saveProfile(userProfile.name, userProfile.height, weight, fat);
+      }
+
+      async function sha256(message) {
+        const msgBuffer = new TextEncoder().encode(message);
+        const hashBuffer = await crypto.subtle.digest('SHA-256', msgBuffer);
+        const hashArray = Array.from(new Uint8Array(hashBuffer));
+        return hashArray.map(b => b.toString(16).padStart(2, '0')).join('');
+      }
+
+      function checkAuth() {
+        if (!ENABLE_AUTH) {
+          document.getElementById('auth-gate').classList.add('hidden');
+          document.getElementById('dashboard-app').classList.remove('hidden');
+          requestAnimationFrame(() => {
+            initDashboard();
+          });
+          return;
+        }
+        const session = localStorage.getItem(AUTH_STORAGE_KEY);
+        if (session === AUTH_HASH) {
+          document.getElementById('auth-gate').classList.add('hidden');
+          document.getElementById('dashboard-app').classList.remove('hidden');
+          requestAnimationFrame(() => {
+            initDashboard();
+          });
+        } else {
+          document.getElementById('auth-gate').classList.remove('hidden');
+          document.getElementById('dashboard-app').classList.add('hidden');
+        }
+      }
+
+      document.getElementById('login-form')?.addEventListener('submit', async (e) => {
+        e.preventDefault();
+        const user = document.getElementById('login-user').value.trim();
+        const pass = document.getElementById('login-pass').value.trim();
+        const hash = await sha256(`${user}:${pass}`);
+
+        if (hash === AUTH_HASH) {
+          localStorage.setItem(AUTH_STORAGE_KEY, hash);
+          document.getElementById('login-error').classList.add('hidden');
+          document.getElementById('auth-gate').classList.add('hidden');
+          document.getElementById('dashboard-app').classList.remove('hidden');
+          requestAnimationFrame(() => {
+            initDashboard();
+          });
+        } else {
+          document.getElementById('login-error').classList.remove('hidden');
+        }
+      });
+
+      document.getElementById('btn-logout')?.addEventListener('click', () => {
+        localStorage.removeItem(AUTH_STORAGE_KEY);
+        checkAuth();
+      });
+
+      document.getElementById('theme-btn')?.addEventListener('click', () => {
+        const isDark = document.documentElement.classList.toggle('dark');
+        localStorage.theme = isDark ? 'dark' : 'light';
+        updateChartTheme();
+      });
+
+      let allRecords = [];
+      let currentRange = 'all';
+      let currentChartType = 'weight';
+      let chartInstance = null;
+
+      function setSyncBadge(state, text) {
+        const dot = document.getElementById('cloud-sync-dot');
+        const label = document.getElementById('cloud-sync-text');
+        const btn = document.getElementById('btn-cloud-sync');
+        if (!dot || !label || !btn) return;
+
+        if (state === 'syncing') {
+          dot.className = 'w-1.5 h-1.5 rounded-full bg-amber-500 animate-ping';
+          label.textContent = text || 'Sincronizando...';
+          btn.className = 'inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-semibold bg-amber-500/10 text-amber-600 dark:text-amber-400 border border-amber-500/20';
+        } else if (state === 'synced') {
+          dot.className = 'w-1.5 h-1.5 rounded-full bg-emerald-500';
+          label.textContent = text || 'Nube';
+          btn.className = 'inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-semibold bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border border-emerald-500/20';
+          btn.title = 'Sincronizado en la nube (GitHub). Pulsa para forzar actualización.';
+        } else if (state === 'error') {
+          dot.className = 'w-1.5 h-1.5 rounded-full bg-red-500';
+          label.textContent = text || 'Error';
+          btn.className = 'inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-semibold bg-red-500/10 text-red-500 border border-red-500/20';
+        } else {
+          dot.className = 'w-1.5 h-1.5 rounded-full bg-slate-400';
+          label.textContent = text || 'Local';
+          btn.className = 'inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-semibold bg-slate-100 dark:bg-slate-800 text-slate-500 dark:text-slate-400 border border-slate-200 dark:border-slate-700';
+          btn.title = 'Modo local. Configura GITHUB_TOKEN en Vercel para activar sincronización automática.';
+        }
+      }
+
+      async function syncFromCloud(silent = false) {
+        const session = localStorage.getItem(AUTH_STORAGE_KEY);
+        if (!session) return;
+
+        if (!silent) setSyncBadge('syncing', 'Sincronizando...');
+
+        try {
+          const res = await fetch('/api/fit-sync', {
+            method: 'GET',
+            headers: { 'x-fit-auth': session }
+          });
+
+          if (!res.ok) {
+            if (!silent) setSyncBadge('error', 'Error sync');
+            return;
+          }
+
+          const data = await res.json();
+          if (!data.ok) {
+            if (data.configured === false) {
+              setSyncBadge('local', 'Local');
+            } else {
+              setSyncBadge('error', 'Error');
+            }
+            return;
+          }
+
+          // Process cloud records and profile
+          const cloudRecords = data.records || [];
+          if (data.profile) {
+            userProfile = Object.assign(userProfile, data.profile);
+            userGoals.targetWeight = userProfile.targetWeight;
+            userGoals.targetBodyFat = userProfile.targetBodyFat;
+            localStorage.setItem(PROFILE_STORAGE_KEY, JSON.stringify(userProfile));
+            localStorage.setItem(GOALS_STORAGE_KEY, JSON.stringify(userGoals));
+            applyUserProfileUI();
+          } else if (data.goals) {
+            userGoals = Object.assign(userGoals, data.goals);
+            userProfile.targetWeight = userGoals.targetWeight;
+            userProfile.targetBodyFat = userGoals.targetBodyFat;
+            localStorage.setItem(GOALS_STORAGE_KEY, JSON.stringify(userGoals));
+            localStorage.setItem(PROFILE_STORAGE_KEY, JSON.stringify(userProfile));
+            applyUserProfileUI();
+          }
+
+          let hasNewFromCloud = false;
+          let hasNewFromLocal = false;
+
+          const mergedMap = new Map();
+          // 1. Index local records
+          allRecords.forEach(r => mergedMap.set(r.id, r));
+
+          // 2. Merge cloud records
+          cloudRecords.forEach(cr => {
+            if (!mergedMap.has(cr.id)) {
+              hasNewFromCloud = true;
+              mergedMap.set(cr.id, cr);
+            }
+          });
+
+          // Check if local has records missing in cloud
+          if (cloudRecords.length > 0) {
+            allRecords.forEach(lr => {
+              if (!cloudRecords.some(cr => cr.id === lr.id)) {
+                hasNewFromLocal = true;
+              }
+            });
+          } else if (allRecords.length > 0) {
+            hasNewFromLocal = true;
+          }
+
+          allRecords = Array.from(mergedMap.values());
+          allRecords.sort((a, b) => a.timestamp - b.timestamp);
+          localStorage.setItem(DATA_STORAGE_KEY, JSON.stringify(allRecords));
+
+          if (hasNewFromCloud) {
+            renderDashboard();
+          }
+
+          setSyncBadge('synced', 'Nube');
+
+          // If local has new records not yet in cloud, upload them
+          if (hasNewFromLocal) {
+            syncToCloud(true);
+          }
+        } catch (err) {
+          console.error('Sync error:', err);
+          if (!silent) setSyncBadge('local', 'Local');
+        }
+      }
+
+      async function syncToCloud(silent = false) {
+        const session = localStorage.getItem(AUTH_STORAGE_KEY);
+        if (!session) return;
+
+        if (!silent) setSyncBadge('syncing', 'Guardando...');
+
+        try {
+          const res = await fetch('/api/fit-sync', {
+            method: 'POST',
+            headers: {
+              'Content-Type': 'application/json',
+              'x-fit-auth': session
+            },
+            body: JSON.stringify({
+              records: allRecords,
+              goals: userGoals,
+              profile: userProfile
+            })
+          });
+
+          if (res.ok) {
+            const data = await res.json();
+            if (data.ok) {
+              setSyncBadge('synced', 'Nube');
+            } else if (data.configured === false) {
+              setSyncBadge('local', 'Local');
+            }
+          }
+        } catch (err) {
+          console.error('Cloud save error:', err);
+        }
+      }
+
+      function loadData() {
+        loadGoals();
+        const stored = localStorage.getItem(DATA_STORAGE_KEY);
+        if (stored) {
+          try {
+            allRecords = JSON.parse(stored);
+          } catch (e) {
+            allRecords = initialData;
+          }
+        } else {
+          allRecords = initialData;
+        }
+        allRecords.sort((a, b) => a.timestamp - b.timestamp);
+      }
+
+      function saveData() {
+        allRecords.sort((a, b) => a.timestamp - b.timestamp);
+        localStorage.setItem(DATA_STORAGE_KEY, JSON.stringify(allRecords));
+        renderDashboard();
+        syncToCloud(false);
+      }
+
+      function getFirstValid(prop) {
+        return allRecords.find(r => r[prop] !== null && r[prop] !== undefined && !isNaN(r[prop]));
+      }
+
+      function getLatestValid(prop) {
+        return [...allRecords].reverse().find(r => r[prop] !== null && r[prop] !== undefined && !isNaN(r[prop]));
+      }
+
+      function getFilteredRecords() {
+        if (!allRecords.length) return [];
+        if (currentRange === 'all') return allRecords;
+        
+        const latestTimestamp = allRecords[allRecords.length - 1].timestamp;
+        let days = 30;
+        if (currentRange === '14d') days = 14;
+        if (currentRange === '7d') days = 7;
+        
+        const cutoff = latestTimestamp - (days * 24 * 60 * 60 * 1000);
+        return allRecords.filter(r => r.timestamp >= cutoff);
+      }
+
+      function computeMovingAverage(records, windowSize = 7, prop = 'weight') {
+        return records.map((record, idx, arr) => {
+          const start = Math.max(0, idx - windowSize + 1);
+          const windowItems = arr.slice(start, idx + 1);
+          const validItems = windowItems.filter(item => item[prop] !== null && item[prop] !== undefined && !isNaN(item[prop]));
+          if (!validItems.length) {
+            const firstValid = arr.find(item => item[prop] !== null && item[prop] !== undefined && !isNaN(item[prop]));
+            return firstValid ? firstValid[prop] : null;
+          }
+          const sum = validItems.reduce((acc, curr) => acc + curr[prop], 0);
+          return +(sum / validItems.length).toFixed(2);
+        });
+      }
+
+      function renderDashboard() {
+        if (!allRecords.length) return;
+
+        const latestRecord = allRecords[allRecords.length - 1];
+        const filtered = getFilteredRecords();
+        if (!filtered.length) return;
+
+        const totalDays = Math.round((latestRecord.timestamp - allRecords[0].timestamp) / (1000 * 60 * 60 * 24)) || 1;
+        const btnAll = document.getElementById('btn-range-all');
+        if (btnAll) btnAll.textContent = `Todo (${totalDays}d)`;
+
+        const badgeCount = document.getElementById('badge-records-count');
+        if (badgeCount) badgeCount.textContent = `${allRecords.length}`;
+
+        const formatDateReadable = (isoStr) => {
+          const d = new Date(isoStr);
+          return d.toLocaleDateString('es-ES', { day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' });
+        };
+        document.getElementById('last-weighin-badge').textContent = formatDateReadable(latestRecord.iso);
+
+        // Determine baseline record and period metadata
+        let baselineRecord;
+        let periodLabel;
+        let daysInPeriod;
+
+        if (currentRange === 'all') {
+          baselineRecord = allRecords.find(r => r.bodyFat !== null && r.skeletalMuscle !== null) || allRecords[0];
+          periodLabel = 'inicio';
+          daysInPeriod = totalDays;
+          
+          document.getElementById('hero-period-badge').textContent = `Dieta + Deporte · 19 Jun 2026`;
+          document.getElementById('hero-lost-label').textContent = 'Pérdida Total';
+          document.getElementById('hero-fat-label').textContent = 'Grasa Pura';
+          document.getElementById('hero-rate-label').textContent = 'Ritmo Medio';
+          document.getElementById('hero-days-label').textContent = 'Días Activo';
+        } else {
+          baselineRecord = filtered[0];
+          const rangeDays = currentRange === '7d' ? 7 : (currentRange === '14d' ? 14 : 30);
+          periodLabel = `en ${rangeDays}d`;
+          daysInPeriod = Math.max(1, Math.round((latestRecord.timestamp - baselineRecord.timestamp) / (1000 * 60 * 60 * 24)));
+          
+          document.getElementById('hero-period-badge').textContent = `Ventana: Últimos ${rangeDays} días (${filtered.length} pesajes)`;
+          document.getElementById('hero-lost-label').textContent = `Pérdida (${rangeDays}d)`;
+          document.getElementById('hero-fat-label').textContent = `Grasa (${rangeDays}d)`;
+          document.getElementById('hero-rate-label').textContent = `Ritmo (${rangeDays}d)`;
+          document.getElementById('hero-days-label').textContent = `Ventana`;
+        }
+
+        const periodWeeks = Math.max(1 / 7, daysInPeriod / 7);
+        const weeksStr = (daysInPeriod / 7).toFixed(1);
+
+        // 1. Weight Metrics & Weekly Rate
+        const baseWeight = baselineRecord.weight;
+        const latestWeight = latestRecord.weight;
+        const weightDiff = latestWeight - baseWeight;
+        const weightDiffPct = (weightDiff / baseWeight) * 100;
+        const weeklyRate = Math.abs(weightDiff / periodWeeks).toFixed(2);
+
+        // Fat Mass (kg)
+        const baseFatKg = (baselineRecord.fatMassKg !== null && baselineRecord.fatMassKg !== undefined) 
+          ? baselineRecord.fatMassKg 
+          : (baseWeight * ((baselineRecord.bodyFat || 24.9) / 100));
+        const latestFatKg = (latestRecord.fatMassKg !== null && latestRecord.fatMassKg !== undefined) 
+          ? latestRecord.fatMassKg 
+          : (latestWeight * ((latestRecord.bodyFat || 21.4) / 100));
+        const fatKgDiff = latestFatKg - baseFatKg;
+
+        // Render Hero Banner
+        document.getElementById('hero-total-lost').textContent = `${weightDiff > 0 ? '+' : ''}${weightDiff.toFixed(2)} kg`;
+        document.getElementById('hero-total-lost-pct').textContent = `${weightDiffPct.toFixed(1)}% peso`;
+        document.getElementById('hero-fat-kg-lost').textContent = `${fatKgDiff > 0 ? '+' : ''}${fatKgDiff.toFixed(2)} kg`;
+        document.getElementById('hero-weekly-rate').textContent = `${weeklyRate} kg/s`;
+        document.getElementById('hero-days-active').textContent = `${daysInPeriod} d`;
+        document.getElementById('hero-weeks-active').textContent = `~${weeksStr} sem`;
+
+        // 1. KPI Peso
+        document.getElementById('kpi-weight-val').textContent = latestWeight.toFixed(2);
+        const kpiWeightDiff = document.getElementById('kpi-weight-diff');
+        kpiWeightDiff.textContent = `${weightDiff > 0 ? '+' : ''}${weightDiff.toFixed(2)} kg`;
+        kpiWeightDiff.className = `text-[10px] sm:text-xs font-black px-1.5 py-0.5 rounded ${weightDiff <= 0 ? 'bg-emerald-500/10 text-emerald-600 dark:text-emerald-400' : 'bg-red-500/10 text-red-500'}`;
+        document.getElementById('kpi-weight-period').textContent = periodLabel;
+
+        // 2. KPI % Grasa
+        const baseFat = baselineRecord.bodyFat ?? getFirstValid('bodyFat')?.bodyFat ?? 24.9;
+        const latestFat = latestRecord.bodyFat ?? getLatestValid('bodyFat')?.bodyFat ?? 21.4;
+        const fatDiff = latestFat - baseFat;
+        document.getElementById('kpi-fat-val').textContent = latestFat.toFixed(1);
+        const kpiFatDiff = document.getElementById('kpi-fat-diff');
+        kpiFatDiff.textContent = `${fatDiff > 0 ? '+' : ''}${fatDiff.toFixed(1)}%`;
+        kpiFatDiff.className = `text-[10px] sm:text-xs font-black px-1.5 py-0.5 rounded ${fatDiff <= 0 ? 'bg-emerald-500/10 text-emerald-600 dark:text-emerald-400' : 'bg-amber-500/10 text-amber-500'}`;
+        document.getElementById('kpi-fat-period').textContent = periodLabel;
+
+        // 3. KPI % Músculo
+        const baseMuscle = baselineRecord.skeletalMuscle ?? getFirstValid('skeletalMuscle')?.skeletalMuscle ?? 48.4;
+        const latestMuscle = latestRecord.skeletalMuscle ?? getLatestValid('skeletalMuscle')?.skeletalMuscle ?? 50.7;
+        const muscleDiff = latestMuscle - baseMuscle;
+        document.getElementById('kpi-muscle-val').textContent = latestMuscle.toFixed(1);
+        const kpiMuscleDiff = document.getElementById('kpi-muscle-diff');
+        kpiMuscleDiff.textContent = `${muscleDiff > 0 ? '+' : ''}${muscleDiff.toFixed(1)}%`;
+        kpiMuscleDiff.className = `text-[10px] sm:text-xs font-black px-1.5 py-0.5 rounded ${muscleDiff >= 0 ? 'bg-teal-500/10 text-teal-600 dark:text-teal-400' : 'bg-slate-500/10 text-slate-500'}`;
+        document.getElementById('kpi-muscle-period').textContent = periodLabel;
+
+        // 4. KPI Grasa Visceral
+        const baseVisceral = baselineRecord.visceralFat ?? getFirstValid('visceralFat')?.visceralFat ?? 8;
+        const latestVisceral = latestRecord.visceralFat ?? getLatestValid('visceralFat')?.visceralFat ?? 6;
+        const viscDiff = latestVisceral - baseVisceral;
+        document.getElementById('kpi-visceral-val').textContent = latestVisceral;
+        const kpiViscDiff = document.getElementById('kpi-visceral-diff');
+        kpiViscDiff.textContent = `${viscDiff > 0 ? '+' : ''}${viscDiff} niv`;
+        kpiViscDiff.className = `text-[10px] sm:text-xs font-black px-1.5 py-0.5 rounded ${viscDiff <= 0 ? 'bg-emerald-500/10 text-emerald-600 dark:text-emerald-400' : 'bg-red-500/10 text-red-500'}`;
+        document.getElementById('kpi-visceral-period').textContent = periodLabel;
+
+        // 5. KPI Edad Metabólica
+        const baseAge = baselineRecord.metabolicAge ?? getFirstValid('metabolicAge')?.metabolicAge ?? 41;
+        const latestAge = latestRecord.metabolicAge ?? getLatestValid('metabolicAge')?.metabolicAge ?? 37;
+        const ageDiff = latestAge - baseAge;
+        document.getElementById('kpi-age-val').textContent = latestAge;
+        const kpiAgeDiff = document.getElementById('kpi-age-diff');
+        kpiAgeDiff.textContent = `${ageDiff > 0 ? '+' : ''}${ageDiff} años`;
+        kpiAgeDiff.className = `text-[10px] sm:text-xs font-black px-1.5 py-0.5 rounded ${ageDiff <= 0 ? 'bg-purple-500/10 text-purple-600 dark:text-purple-400' : 'bg-slate-500/10 text-slate-500'}`;
+        document.getElementById('kpi-age-period').textContent = periodLabel;
+
+        // 6. KPI % Agua
+        const baseWater = baselineRecord.bodyWater ?? getFirstValid('bodyWater')?.bodyWater ?? 54.2;
+        const latestWater = latestRecord.bodyWater ?? getLatestValid('bodyWater')?.bodyWater ?? 56.7;
+        const waterDiff = latestWater - baseWater;
+        document.getElementById('kpi-water-val').textContent = latestWater.toFixed(1);
+        const kpiWaterDiff = document.getElementById('kpi-water-diff');
+        kpiWaterDiff.textContent = `${waterDiff > 0 ? '+' : ''}${waterDiff.toFixed(1)}%`;
+        kpiWaterDiff.className = `text-[10px] sm:text-xs font-black px-1.5 py-0.5 rounded ${waterDiff >= 0 ? 'bg-sky-500/10 text-sky-600 dark:text-sky-400' : 'bg-slate-500/10 text-slate-500'}`;
+        document.getElementById('kpi-water-period').textContent = periodLabel;
+
+        // Target Goals Calculation & UI
+        const targetW = userGoals.targetWeight;
+        const targetF = userGoals.targetBodyFat;
+        document.getElementById('goal-weight-target-label').textContent = `${targetW.toFixed(1)} kg`;
+        document.getElementById('goal-fat-target-label').textContent = `${targetF.toFixed(1)}%`;
+
+        const globalFirstWeight = getFirstValid('weight')?.weight || 87.10;
+        const totalWToLose = globalFirstWeight - targetW;
+        const currentWLost = globalFirstWeight - latestWeight;
+        const weightPct = Math.min(100, Math.max(0, (currentWLost / totalWToLose) * 100));
+        const wRemaining = Math.max(0, latestWeight - targetW);
+
+        document.getElementById('goal-weight-pct').textContent = `${weightPct.toFixed(1)}%`;
+        document.getElementById('goal-weight-bar').style.width = `${weightPct.toFixed(1)}%`;
+        document.getElementById('goal-weight-remaining').textContent = `${wRemaining.toFixed(2)} kg`;
+
+        const rateForForecast = weeklyRate > 0.05 ? parseFloat(weeklyRate) : 0.65;
+        const daysToGoal = Math.round((wRemaining / rateForForecast) * 7);
+        const forecastDate = new Date(Date.now() + daysToGoal * 24 * 60 * 60 * 1000);
+        const forecastStr = forecastDate.toLocaleDateString('es-ES', { day: 'numeric', month: 'short' });
+        const rateContextLabel = currentRange === 'all' ? 'ritmo medio' : `ritmo ${periodLabel}`;
+        document.getElementById('goal-weight-forecast').innerHTML = `⏱️ Llegada estimada al ${rateContextLabel} (<strong>${rateForForecast} kg/s</strong>): <strong class="text-slate-700 dark:text-slate-300">~${daysToGoal} días</strong> (~${forecastStr})`;
+
+        const globalFirstFat = getFirstValid('bodyFat')?.bodyFat || 24.9;
+        const totalFatToDrop = globalFirstFat - targetF;
+        const currentFatDropped = globalFirstFat - latestFat;
+        const fatPct = Math.min(100, Math.max(0, (currentFatDropped / totalFatToDrop) * 100));
+        const fatRemaining = Math.max(0, latestFat - targetF);
+
+        document.getElementById('goal-fat-pct').textContent = `${fatPct.toFixed(1)}%`;
+        document.getElementById('goal-fat-bar').style.width = `${fatPct.toFixed(1)}%`;
+        document.getElementById('goal-fat-remaining').textContent = `-${fatRemaining.toFixed(1)}%`;
+
+        // Secondary Metrics
+        const latestMuscleMass = getLatestValid('muscleMass')?.muscleMass ?? 59.39;
+        const baseMuscleMass = baselineRecord.muscleMass ?? getFirstValid('muscleMass')?.muscleMass ?? 62.10;
+        document.getElementById('sec-muscle-mass').textContent = latestMuscleMass.toFixed(2);
+        const mmDiff = latestMuscleMass - baseMuscleMass;
+        document.getElementById('sec-muscle-diff').textContent = `${mmDiff > 0 ? '+' : ''}${mmDiff.toFixed(2)} kg`;
+
+        const latestLeanMass = getLatestValid('leanMassKg')?.leanMassKg ?? (getLatestValid('fatFreeWeight')?.fatFreeWeight ?? 62.49);
+        const baseLeanMass = baselineRecord.leanMassKg ?? (baselineRecord.fatFreeWeight ?? getFirstValid('fatFreeWeight')?.fatFreeWeight ?? 65.41);
+        document.getElementById('sec-lean-mass').textContent = latestLeanMass.toFixed(2);
+        const lmDiff = latestLeanMass - baseLeanMass;
+        document.getElementById('sec-lean-diff').textContent = `${lmDiff > 0 ? '+' : ''}${lmDiff.toFixed(2)} kg`;
+
+        const latestSubcut = getLatestValid('subcutaneousFat')?.subcutaneousFat ?? 19.4;
+        const baseSubcut = baselineRecord.subcutaneousFat ?? getFirstValid('subcutaneousFat')?.subcutaneousFat ?? 22.3;
+        document.getElementById('sec-subcut-fat').textContent = latestSubcut.toFixed(1);
+        const subDiff = latestSubcut - baseSubcut;
+        document.getElementById('sec-subcut-diff').textContent = `${subDiff > 0 ? '+' : ''}${subDiff.toFixed(1)}%`;
+
+        const latestProtein = getLatestValid('protein')?.protein ?? 17.9;
+        const baseProtein = baselineRecord.protein ?? getFirstValid('protein')?.protein ?? 17.1;
+        document.getElementById('sec-protein').textContent = latestProtein.toFixed(1);
+        const protDiff = latestProtein - baseProtein;
+        document.getElementById('sec-protein-diff').textContent = `${protDiff > 0 ? '+' : ''}${protDiff.toFixed(1)}%`;
+
+        const latestBone = getLatestValid('boneMass')?.boneMass ?? 3.10;
+        document.getElementById('sec-bone').textContent = latestBone.toFixed(2);
+
+        const latestBmr = getLatestValid('bmr')?.bmr ?? 1708;
+        document.getElementById('sec-bmr').textContent = latestBmr;
+        const latestBmi = getLatestValid('bmi')?.bmi ?? 22.5;
+        document.getElementById('sec-bmi').textContent = latestBmi.toFixed(1);
+
+        // 7. FFMI (Fat-Free Mass Index normalizado para la altura del usuario)
+        const USER_HEIGHT_M = userProfile.height || 1.88;
+        const ffmiLatest = latestLeanMass / (USER_HEIGHT_M * USER_HEIGHT_M);
+        const ffmiNormalized = ffmiLatest + 6.1 * (1.8 - USER_HEIGHT_M);
+        const ffmiValEl = document.getElementById('sec-ffmi-val');
+        if (ffmiValEl) ffmiValEl.textContent = ffmiLatest.toFixed(1);
+        const ffmiDiffEl = document.getElementById('sec-ffmi-diff');
+        if (ffmiDiffEl) ffmiDiffEl.textContent = `norm: ${ffmiNormalized.toFixed(1)}`;
+        const ffmiBadgeEl = document.getElementById('sec-ffmi-badge');
+        if (ffmiBadgeEl) {
+          if (ffmiNormalized >= 21) {
+            ffmiBadgeEl.textContent = 'Excelente';
+            ffmiBadgeEl.className = 'text-[9px] font-bold px-1.5 py-0.2 rounded bg-purple-500/10 text-purple-600 dark:text-purple-400';
+          } else if (ffmiNormalized >= 17) {
+            ffmiBadgeEl.textContent = 'Atlético';
+            ffmiBadgeEl.className = 'text-[9px] font-bold px-1.5 py-0.2 rounded bg-emerald-500/10 text-emerald-600 dark:text-emerald-400';
+          } else {
+            ffmiBadgeEl.textContent = 'Normal';
+            ffmiBadgeEl.className = 'text-[9px] font-bold px-1.5 py-0.2 rounded bg-slate-500/10 text-slate-500';
+          }
+        }
+
+        // 8. Milestones & Plateau Analysis
+        const lowestRecord = allRecords.reduce((min, curr) => curr.weight < min.weight ? curr : min, allRecords[0]);
+        const msLowestWeightEl = document.getElementById('ms-lowest-weight');
+        const msLowestDateEl = document.getElementById('ms-lowest-date');
+        if (msLowestWeightEl) msLowestWeightEl.textContent = `${lowestRecord.weight.toFixed(2)} kg`;
+        if (msLowestDateEl) {
+          const d = new Date(lowestRecord.iso);
+          msLowestDateEl.textContent = d.toLocaleDateString('es-ES', { day: 'numeric', month: 'short' });
+        }
+
+        const minWeightAll = lowestRecord.weight;
+        const barriersContainer = document.getElementById('ms-barriers-container');
+        if (barriersContainer) {
+          let html = '';
+          if (minWeightAll < 85) html += '<span class="px-1.5 py-0.5 rounded bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 text-[9px] sm:text-[10px] font-bold">&lt;85kg ✓</span>';
+          if (minWeightAll < 80) html += '<span class="px-1.5 py-0.5 rounded bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 text-[9px] sm:text-[10px] font-bold">&lt;80kg ✓</span>';
+          if (minWeightAll < 78) html += '<span class="px-1.5 py-0.5 rounded bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 text-[9px] sm:text-[10px] font-bold">&lt;78kg ✓</span>';
+          else html += `<span class="px-1.5 py-0.5 rounded bg-slate-100 dark:bg-slate-800 text-slate-500 text-[9px] sm:text-[10px] font-medium">Meta: 77kg</span>`;
+          barriersContainer.innerHTML = html;
+        }
+
+        const moving7d = computeMovingAverage(allRecords, 7, 'weight');
+        const latestMovingAvg = moving7d[moving7d.length - 1];
+        const TWO_WEEKS_MS = 14 * 24 * 60 * 60 * 1000;
+        const target14dTimestamp = latestRecord.timestamp - TWO_WEEKS_MS;
+        let idx14d = 0;
+        let minDiff = Infinity;
+        for (let i = 0; i < allRecords.length; i++) {
+          const diff = Math.abs(allRecords[i].timestamp - target14dTimestamp);
+          if (diff < minDiff) {
+            minDiff = diff;
+            idx14d = i;
+          }
+        }
+        const pastMovingAvg = moving7d[idx14d] || moving7d[0];
+        const delta14d = latestMovingAvg - pastMovingAvg;
+        const weekly14dRate = Math.abs((delta14d / 2)).toFixed(2);
+
+        const plateauStatusBadge = document.getElementById('plateau-status-badge');
+        const plateauInsightText = document.getElementById('plateau-insight-text');
+        const plateauIcon = document.getElementById('plateau-icon');
+
+        if (plateauStatusBadge && plateauInsightText) {
+          if (Math.abs(delta14d) < 0.25) {
+            plateauStatusBadge.textContent = 'Meseta';
+            plateauStatusBadge.className = 'px-1.5 py-0.2 text-[9px] font-bold rounded bg-amber-500/10 text-amber-600 dark:text-amber-400';
+            plateauInsightText.textContent = 'Variación < 0.2 kg · Ajustar o refeed';
+            if (plateauIcon) plateauIcon.innerHTML = '<span class="text-sm sm:text-base">⏸️</span>';
+          } else if (delta14d < 0) {
+            plateauStatusBadge.textContent = 'Activo';
+            plateauStatusBadge.className = 'px-1.5 py-0.2 text-[9px] font-bold rounded bg-emerald-500/10 text-emerald-600 dark:text-emerald-400';
+            plateauInsightText.textContent = `-${weekly14dRate} kg/sem · Déficit constante`;
+            if (plateauIcon) plateauIcon.innerHTML = '<span class="text-sm sm:text-base">📉</span>';
+          } else {
+            plateauStatusBadge.textContent = 'Repunte';
+            plateauStatusBadge.className = 'px-1.5 py-0.2 text-[9px] font-bold rounded bg-blue-500/10 text-blue-600 dark:text-blue-400';
+            plateauInsightText.textContent = `+${delta14d.toFixed(2)} kg · Agua o sodio`;
+            if (plateauIcon) plateauIcon.innerHTML = '<span class="text-sm sm:text-base">📈</span>';
+          }
+        }
+
+        // 9. Transformación Día 1 vs Hoy (Foto Finish & P-Ratio)
+        const firstFullScan = allRecords.find(r => r.bodyFat !== null && r.skeletalMuscle !== null) || allRecords[0];
+        const h2hFirstWeight = firstFullScan.weight || 87.10;
+        const h2hFirstFatPct = firstFullScan.bodyFat || 24.9;
+        const h2hFirstFatKg = firstFullScan.fatMassKg || (h2hFirstWeight * (h2hFirstFatPct / 100));
+        const h2hFirstMuscle = firstFullScan.skeletalMuscle || 48.4;
+        const h2hFirstVisceral = firstFullScan.visceralFat || 8;
+        const h2hFirstAge = firstFullScan.metabolicAge || 41;
+
+        const h2hLatestWeight = latestRecord.weight;
+        const h2hLatestFatPct = latestRecord.bodyFat || 21.0;
+        const h2hLatestFatKg = latestRecord.fatMassKg || (h2hLatestWeight * (h2hLatestFatPct / 100));
+        const h2hLatestMuscle = latestRecord.skeletalMuscle || 51.0;
+        const h2hLatestVisceral = latestRecord.visceralFat || 6;
+        const h2hLatestAge = latestRecord.metabolicAge || 37;
+
+        const totalWDrop = h2hFirstWeight - h2hLatestWeight;
+        const totalFatDropKg = h2hFirstFatKg - h2hLatestFatKg;
+        const fatLossPctOfTotal = totalWDrop > 0 ? Math.min(100, Math.max(0, (totalFatDropKg / totalWDrop) * 100)) : 62;
+        const leanLossPctOfTotal = Math.max(0, 100 - fatLossPctOfTotal);
+
+        const goalFatLostSummary = document.getElementById('goal-fat-lost-summary');
+        if (goalFatLostSummary) goalFatLostSummary.textContent = `-${totalFatDropKg.toFixed(2)} kg`;
+
+        const recompFatPctEl = document.getElementById('recomp-fat-pct');
+        if (recompFatPctEl) recompFatPctEl.textContent = `${fatLossPctOfTotal.toFixed(1)}%`;
+        const recompMuscleValEl = document.getElementById('recomp-muscle-val');
+        if (recompMuscleValEl) recompMuscleValEl.textContent = `${h2hLatestMuscle.toFixed(1)}%`;
+
+        const pratioFatLabel = document.getElementById('pratio-fat-label');
+        const pratioLeanLabel = document.getElementById('pratio-lean-label');
+        const pratioFatBar = document.getElementById('pratio-fat-bar');
+        const pratioLeanBar = document.getElementById('pratio-lean-bar');
+        if (pratioFatLabel) pratioFatLabel.textContent = `${fatLossPctOfTotal.toFixed(1)}% (${totalFatDropKg.toFixed(1)}kg)`;
+        if (pratioLeanLabel) pratioLeanLabel.textContent = `${leanLossPctOfTotal.toFixed(1)}%`;
+        if (pratioFatBar) pratioFatBar.style.width = `${fatLossPctOfTotal.toFixed(1)}%`;
+        if (pratioLeanBar) pratioLeanBar.style.width = `${leanLossPctOfTotal.toFixed(1)}%`;
+
+        const h2hFatKgEl = document.getElementById('h2h-fat-kg');
+        if (h2hFatKgEl) h2hFatKgEl.textContent = `${h2hFirstFatKg.toFixed(1)}kg → ${h2hLatestFatKg.toFixed(1)}kg (-${totalFatDropKg.toFixed(2)}kg)`;
+        const h2hFatPctEl = document.getElementById('h2h-fat-pct');
+        if (h2hFatPctEl) h2hFatPctEl.textContent = `${h2hFirstFatPct.toFixed(1)}% → ${h2hLatestFatPct.toFixed(1)}% (-${(h2hFirstFatPct - h2hLatestFatPct).toFixed(1)}%)`;
+        const h2hVisceralEl = document.getElementById('h2h-visceral');
+        if (h2hVisceralEl) h2hVisceralEl.textContent = `Niv ${h2hFirstVisceral} → ${h2hLatestVisceral} (${h2hLatestVisceral - h2hFirstVisceral})`;
+        const h2hMetabolicAgeEl = document.getElementById('h2h-metabolic-age');
+        if (h2hMetabolicAgeEl) h2hMetabolicAgeEl.textContent = `${h2hFirstAge} → ${h2hLatestAge} (${h2hLatestAge - h2hFirstAge} años)`;
+
+        const butterPacks = Math.max(0, totalFatDropKg / 0.25).toFixed(1);
+        const fatCalories = Math.round(Math.max(0, totalFatDropKg) * 7700);
+        const equivButterEl = document.getElementById('equiv-butter');
+        if (equivButterEl) equivButterEl.textContent = `~${butterPacks} paq. mantequilla`;
+        const equivCaloriesEl = document.getElementById('equiv-calories');
+        if (equivCaloriesEl) equivCaloriesEl.textContent = `~${fatCalories.toLocaleString('es-ES')} kcal déficit`;
+
+        renderWeeklyTable();
+        renderHistory();
+
+        // Render Chart on next animation frame after layout pass
+        requestAnimationFrame(() => {
+          renderChart(filtered);
+        });
+      }
+
+      function updateChartTheme() {
+        if (chartInstance) {
+          renderChart(getFilteredRecords());
+        }
+      }
+
+      function renderChart(records) {
+        const ctx = document.getElementById('mainChart');
+        if (!ctx) return;
+
+        if (typeof Chart === 'undefined') {
+          setTimeout(() => renderChart(records), 50);
+          return;
+        }
+
+        const parent = ctx.parentElement;
+        if (parent && parent.clientWidth === 0) {
+          requestAnimationFrame(() => {
+            setTimeout(() => renderChart(records), 30);
+          });
+          return;
+        }
+
+        const isDark = document.documentElement.classList.contains('dark');
+        const gridColor = isDark ? 'rgba(255, 255, 255, 0.05)' : 'rgba(0, 0, 0, 0.05)';
+        const textColor = isDark ? '#94a3b8' : '#64748b';
+        const isMobile = window.innerWidth < 640;
+
+        if (chartInstance) {
+          chartInstance.destroy();
+        }
+
+        const labels = records.map(r => {
+          const parts = r.date.split('-');
+          return `${parseInt(parts[2])}/${parseInt(parts[1])}`;
+        });
+
+        let datasets = [];
+        let yAxisTitle = '';
+        let title = '';
+        let subtitle = '';
+        let yMin = undefined;
+        let yMax = undefined;
+        let yStepSize = undefined;
+
+        if (currentChartType === 'weight') {
+          title = 'Evolución de Peso, Media (7d) & Meta';
+          subtitle = 'Valores diarios con línea de tendencia suavizada y meta fijada.';
+          yAxisTitle = 'Peso (kg)';
+
+          const movingAvg = computeMovingAverage(records, 7, 'weight');
+          const windowMin = records.map((r, idx, arr) => {
+            const start = Math.max(0, idx - 6);
+            const win = arr.slice(start, idx + 1);
+            return Math.min(...win.map(item => item.weight));
+          });
+          const windowMax = records.map((r, idx, arr) => {
+            const start = Math.max(0, idx - 6);
+            const win = arr.slice(start, idx + 1);
+            return Math.max(...win.map(item => item.weight));
+          });
+
+          datasets = [
+            {
+              label: 'Canal Max',
+              data: windowMax,
+              borderColor: 'transparent',
+              pointRadius: 0,
+              pointHitRadius: 0,
+              fill: false,
+            },
+            {
+              label: 'Canal Fluctuación (7d)',
+              data: windowMin,
+              borderColor: 'transparent',
+              backgroundColor: isDark ? 'rgba(16, 185, 129, 0.08)' : 'rgba(5, 150, 105, 0.06)',
+              pointRadius: 0,
+              pointHitRadius: 0,
+              fill: '-1',
+            },
+            {
+              label: 'Peso Diario (kg)',
+              data: records.map(r => r.weight),
+              borderColor: isDark ? '#10b981' : '#059669',
+              backgroundColor: isDark ? 'rgba(16, 185, 129, 0.15)' : 'rgba(5, 150, 105, 0.1)',
+              borderWidth: 2,
+              pointRadius: isMobile ? (records.length > 20 ? 1.5 : 3) : (records.length > 40 ? 2.5 : 4),
+              pointHitRadius: 15,
+              pointHoverRadius: 5,
+              pointBackgroundColor: isDark ? '#10b981' : '#059669',
+              tension: 0.2,
+              fill: false,
+              spanGaps: true,
+            },
+            {
+              label: 'Tendencia Media (7d)',
+              data: movingAvg,
+              borderColor: isDark ? '#38bdf8' : '#0284c7',
+              borderWidth: 2,
+              borderDash: [4, 4],
+              pointRadius: 0,
+              pointHitRadius: 10,
+              tension: 0.4,
+              fill: false,
+              spanGaps: true,
+            },
+            {
+              label: `Meta (${userGoals.targetWeight} kg)`,
+              data: records.map(() => userGoals.targetWeight),
+              borderColor: '#f59e0b',
+              borderWidth: 1.5,
+              borderDash: [6, 6],
+              pointRadius: 0,
+              pointHitRadius: 0,
+              fill: false,
+              spanGaps: true,
+            }
+          ];
+        } else if (currentChartType === 'fat') {
+          title = 'Evolución de % Grasa, Media (7d) & Meta';
+          subtitle = 'Valores diarios de grasa corporal con línea de tendencia suavizada y meta fijada.';
+          yAxisTitle = 'Grasa Corporal (%)';
+          yMin = 10;
+          yMax = 30;
+          yStepSize = isMobile ? 5 : 2;
+
+          const movingAvgFat = computeMovingAverage(records, 7, 'bodyFat');
+          datasets = [
+            {
+              label: '% Grasa Diario',
+              data: records.map(r => r.bodyFat),
+              borderColor: '#f59e0b',
+              backgroundColor: isDark ? 'rgba(245, 158, 11, 0.15)' : 'rgba(245, 158, 11, 0.1)',
+              borderWidth: 2,
+              pointRadius: isMobile ? (records.length > 20 ? 1.5 : 3) : (records.length > 40 ? 2.5 : 4),
+              pointHitRadius: 15,
+              pointHoverRadius: 5,
+              pointBackgroundColor: '#f59e0b',
+              tension: 0.2,
+              fill: false,
+              spanGaps: true,
+            },
+            {
+              label: 'Tendencia Media (7d)',
+              data: movingAvgFat,
+              borderColor: isDark ? '#fb923c' : '#ea580c',
+              borderWidth: 2,
+              borderDash: [4, 4],
+              pointRadius: 0,
+              pointHitRadius: 10,
+              tension: 0.4,
+              fill: false,
+              spanGaps: true,
+            },
+            {
+              label: `Meta (${userGoals.targetBodyFat}%)`,
+              data: records.map(() => userGoals.targetBodyFat),
+              borderColor: '#10b981',
+              borderWidth: 1.5,
+              borderDash: [6, 6],
+              pointRadius: 0,
+              pointHitRadius: 0,
+              fill: false,
+              spanGaps: true,
+            }
+          ];
+        } else if (currentChartType === 'composition') {
+          title = 'Composición Corporal Completa (%)';
+          subtitle = 'Comparativa de % Músculo, % Grasa, % Agua, % Grasa Subcutánea y % Proteína.';
+          yAxisTitle = 'Porcentaje (%)';
+
+          datasets = [
+            {
+              label: '% Músculo',
+              data: records.map(r => r.skeletalMuscle),
+              borderColor: '#14b8a6',
+              backgroundColor: 'rgba(20, 184, 166, 0.1)',
+              borderWidth: 2,
+              pointRadius: isMobile ? 1.5 : 2.5,
+              pointHitRadius: 12,
+              tension: 0.2,
+            },
+            {
+              label: '% Grasa',
+              data: records.map(r => r.bodyFat),
+              borderColor: '#f59e0b',
+              backgroundColor: 'rgba(245, 158, 11, 0.1)',
+              borderWidth: 2,
+              pointRadius: isMobile ? 1.5 : 2.5,
+              pointHitRadius: 12,
+              tension: 0.2,
+            },
+            {
+              label: '% Agua',
+              data: records.map(r => r.bodyWater),
+              borderColor: '#0ea5e9',
+              backgroundColor: 'rgba(14, 165, 233, 0.1)',
+              borderWidth: 1.5,
+              pointRadius: isMobile ? 1 : 2,
+              pointHitRadius: 12,
+              tension: 0.2,
+            },
+            {
+              label: '% G. Subcut',
+              data: records.map(r => r.subcutaneousFat),
+              borderColor: '#ec4899',
+              backgroundColor: 'rgba(236, 72, 153, 0.1)',
+              borderWidth: 1.5,
+              pointRadius: 0,
+              pointHitRadius: 10,
+              borderDash: [3, 3],
+              tension: 0.2,
+            },
+            {
+              label: '% Proteína',
+              data: records.map(r => r.protein),
+              borderColor: '#8b5cf6',
+              backgroundColor: 'rgba(139, 92, 246, 0.1)',
+              borderWidth: 1.5,
+              pointRadius: 0,
+              pointHitRadius: 10,
+              borderDash: [3, 3],
+              tension: 0.2,
+            }
+          ];
+        } else if (currentChartType === 'mass_kg') {
+          title = 'Masa Grasa vs Masa Magra en Kilogramos';
+          subtitle = 'Desglose en kilogramos absolutos para ver la recomposición muscular.';
+          yAxisTitle = 'Masa (kg)';
+
+          datasets = [
+            {
+              label: 'Masa Magra (kg)',
+              data: records.map(r => r.leanMassKg || r.fatFreeWeight),
+              borderColor: '#10b981',
+              backgroundColor: 'rgba(16, 185, 129, 0.12)',
+              borderWidth: 2,
+              pointRadius: isMobile ? 1 : 2,
+              pointHitRadius: 12,
+              tension: 0.2,
+              fill: true,
+            },
+            {
+              label: 'Masa Muscular (kg)',
+              data: records.map(r => r.muscleMass),
+              borderColor: '#14b8a6',
+              backgroundColor: 'rgba(20, 184, 166, 0.12)',
+              borderWidth: 2,
+              pointRadius: isMobile ? 1 : 2,
+              pointHitRadius: 12,
+              tension: 0.2,
+              fill: false,
+            },
+            {
+              label: 'Masa Grasa (kg)',
+              data: records.map(r => r.fatMassKg),
+              borderColor: '#ef4444',
+              backgroundColor: 'rgba(239, 68, 68, 0.15)',
+              borderWidth: 2,
+              pointRadius: isMobile ? 1 : 2,
+              pointHitRadius: 12,
+              tension: 0.2,
+              fill: true,
+            }
+          ];
+        } else if (currentChartType === 'metabolic') {
+          title = 'Salud Metabólica & Grasa Visceral';
+          subtitle = 'Evolución de la Grasa Visceral y Edad Metabólica.';
+          yAxisTitle = 'Nivel / Años';
+
+          datasets = [
+            {
+              label: 'Edad Metabólica',
+              data: records.map(r => r.metabolicAge),
+              borderColor: '#a855f7',
+              backgroundColor: 'rgba(168, 85, 247, 0.1)',
+              borderWidth: 2,
+              pointRadius: isMobile ? 2.5 : 3.5,
+              pointHitRadius: 15,
+              stepped: true,
+            },
+            {
+              label: 'Grasa Visceral',
+              data: records.map(r => r.visceralFat),
+              borderColor: '#3b82f6',
+              backgroundColor: 'rgba(59, 130, 246, 0.1)',
+              borderWidth: 2,
+              pointRadius: isMobile ? 2.5 : 3.5,
+              pointHitRadius: 15,
+              stepped: true,
+            }
+          ];
+        } else if (currentChartType === 'bmr') {
+          title = 'Tasa Metabólica Basal (TMB)';
+          subtitle = 'Gasto calórico diario estimado en reposo (kcal/día).';
+          yAxisTitle = 'TMB (kcal)';
+
+          datasets = [
+            {
+              label: 'TMB Basal (kcal/día)',
+              data: records.map(r => r.bmr),
+              borderColor: '#6366f1',
+              backgroundColor: 'rgba(99, 102, 241, 0.15)',
+              borderWidth: 2,
+              pointRadius: isMobile ? 2 : 3,
+              pointHitRadius: 15,
+              tension: 0.2,
+              fill: true,
+            }
+          ];
+        }
+
+        document.getElementById('chart-title').textContent = title;
+        document.getElementById('chart-subtitle').textContent = subtitle;
+
+        chartInstance = new Chart(ctx, {
+          type: 'line',
+          data: {
+            labels: labels,
+            datasets: datasets
+          },
+          options: {
+            responsive: true,
+            maintainAspectRatio: false,
+            interaction: {
+              mode: 'index',
+              intersect: false,
+            },
+            plugins: {
+              legend: {
+                position: 'top',
+                labels: {
+                  color: textColor,
+                  font: { family: 'inherit', size: isMobile ? 10 : 12, weight: '500' },
+                  usePointStyle: true,
+                  boxWidth: isMobile ? 6 : 8,
+                  padding: isMobile ? 8 : 12,
+                  filter: (item) => item.text !== 'Canal Max',
+                }
+              },
+              tooltip: {
+                filter: (item) => item.dataset.label !== 'Canal Max',
+                backgroundColor: isDark ? '#1e293b' : '#0f172a',
+                titleColor: '#fff',
+                bodyColor: '#e2e8f0',
+                borderColor: isDark ? '#334155' : '#cbd5e1',
+                borderWidth: 1,
+                padding: isMobile ? 8 : 10,
+                cornerRadius: 12,
+                titleFont: { size: isMobile ? 11 : 12 },
+                bodyFont: { size: isMobile ? 10 : 11 },
+                callbacks: {
+                  title: (items) => {
+                    const idx = items[0].dataIndex;
+                    const r = records[idx];
+                    return `${r.date} · ${r.time}`;
+                  },
+                  label: (context) => {
+                    let label = context.dataset.label || '';
+                    if (label) label += ': ';
+                    if (context.parsed.y !== null && context.parsed.y !== undefined) {
+                      if (currentChartType === 'weight') {
+                        label += `${context.parsed.y.toFixed(2)} kg`;
+                      } else if (currentChartType === 'fat' || currentChartType === 'composition') {
+                        label += `${context.parsed.y.toFixed(1)}%`;
+                      } else if (currentChartType === 'mass_kg') {
+                        label += `${context.parsed.y.toFixed(2)} kg`;
+                      } else if (currentChartType === 'bmr') {
+                        label += `${Math.round(context.parsed.y)} kcal`;
+                      } else {
+                        label += `${context.parsed.y}`;
+                      }
+                    }
+                    return label;
+                  }
+                }
+              }
+            },
+            scales: {
+              x: {
+                grid: { color: gridColor },
+                ticks: { color: textColor, maxRotation: 0, autoSkip: true, maxTicksLimit: isMobile ? 6 : 12, font: { size: isMobile ? 9 : 11 } }
+              },
+              y: {
+                grid: { color: gridColor },
+                min: yMin,
+                max: yMax,
+                ticks: {
+                  color: textColor,
+                  font: { size: isMobile ? 9 : 11 },
+                  stepSize: yStepSize,
+                  callback: function(val) {
+                    if (currentChartType === 'fat' || currentChartType === 'composition') {
+                      return val + '%';
+                    }
+                    if (currentChartType === 'weight') {
+                      return val + ' kg';
+                    }
+                    return val;
+                  }
+                },
+                title: {
+                  display: !isMobile,
+                  text: yAxisTitle,
+                  color: textColor,
+                  font: { size: 11, weight: '600' }
+                }
+              }
+            }
+          }
+        });
+      }
+
+      function renderWeeklyTable() {
+        const tbody = document.getElementById('weekly-table-body');
+        if (!tbody || !allRecords.length) return;
+
+        const startTime = allRecords[0].timestamp;
+        const ONE_WEEK_MS = 7 * 24 * 60 * 60 * 1000;
+        const weeks = [];
+
+        let currentWeekNum = 1;
+        let weekStart = startTime;
+
+        while (weekStart <= allRecords[allRecords.length - 1].timestamp) {
+          const weekEnd = weekStart + ONE_WEEK_MS;
+          const weekRecords = allRecords.filter(r => r.timestamp >= weekStart && r.timestamp < weekEnd);
+          
+          if (weekRecords.length > 0) {
+            const firstOfW = weekRecords[0];
+            const lastOfW = weekRecords[weekRecords.length - 1];
+            const diff = lastOfW.weight - firstOfW.weight;
+            
+            const fats = weekRecords.map(r => r.bodyFat).filter(Boolean);
+            const avgFat = fats.length ? (fats.reduce((a, b) => a + b, 0) / fats.length).toFixed(1) : '--';
+
+            const muscles = weekRecords.map(r => r.skeletalMuscle).filter(Boolean);
+            const avgMuscle = muscles.length ? (muscles.reduce((a, b) => a + b, 0) / muscles.length).toFixed(1) : '--';
+            
+            const formatDateShort = (dStr) => {
+              const [y, m, d] = dStr.split('-');
+              return `${parseInt(d)}/${parseInt(m)}`;
+            };
+
+            weeks.push({
+              weekNum: currentWeekNum,
+              period: `${formatDateShort(firstOfW.date)} - ${formatDateShort(lastOfW.date)}`,
+              startWeight: firstOfW.weight,
+              endWeight: lastOfW.weight,
+              diff: diff,
+              avgFat: avgFat,
+              avgMuscle: avgMuscle,
+            });
+          }
+          currentWeekNum++;
+          weekStart = weekEnd;
+        }
+
+        const badgeTotalWeeks = document.getElementById('badge-total-weeks');
+        if (badgeTotalWeeks) badgeTotalWeeks.textContent = `${weeks.length} semanas`;
+
+        let bestWeek = null;
+        for (const w of weeks) {
+          if (w.diff < 0 && (!bestWeek || w.diff < bestWeek.diff)) {
+            bestWeek = w;
+          }
+        }
+        const msBestWeekVal = document.getElementById('ms-best-week-val');
+        const msBestWeekName = document.getElementById('ms-best-week-name');
+        if (msBestWeekVal && bestWeek) msBestWeekVal.textContent = `${bestWeek.diff.toFixed(2)} kg`;
+        if (msBestWeekName && bestWeek) msBestWeekName.textContent = `Semana ${bestWeek.weekNum}`;
+
+        weeks.reverse();
+
+        tbody.innerHTML = weeks.map(w => `
+          <tr class="hover:bg-slate-50/80 dark:hover:bg-slate-800/40 transition-colors">
+            <td class="py-2 px-3 font-bold text-slate-900 dark:text-white text-xs">
+              Sem ${w.weekNum} <span class="text-[10px] text-slate-400 font-normal">(${w.period})</span>
+            </td>
+            <td class="py-2 px-3 text-right font-bold text-slate-900 dark:text-white text-xs">${w.endWeight.toFixed(2)}kg</td>
+            <td class="py-2 px-3 text-right">
+              <span class="inline-flex items-center px-1.5 py-0.5 rounded text-[10px] font-black ${w.diff <= 0 ? 'bg-emerald-500/10 text-emerald-600 dark:text-emerald-400' : 'bg-red-500/10 text-red-600 dark:text-red-400'}">
+                ${w.diff > 0 ? '+' : ''}${w.diff.toFixed(2)}
+              </span>
+            </td>
+            <td class="py-2 px-3 text-right text-amber-600 dark:text-amber-400 font-bold text-xs">${w.avgFat}%</td>
+            <td class="py-2 px-3 text-right text-teal-600 dark:text-teal-400 font-bold text-xs hidden sm:table-cell">${w.avgMuscle}%</td>
+          </tr>
+        `).join('');
+      }
+
+      function renderHistory() {
+        const tbody = document.getElementById('history-table-body');
+        const mobileList = document.getElementById('history-mobile-list');
+        if (!allRecords.length) return;
+
+        const searchQuery = (document.getElementById('search-history')?.value || '').toLowerCase().trim();
+        let recordsToDisplay = [...allRecords].reverse();
+
+        if (searchQuery) {
+          recordsToDisplay = recordsToDisplay.filter(r => r.date.includes(searchQuery) || r.time.includes(searchQuery));
+        }
+
+        // 1. Render Mobile Feed Cards
+        if (mobileList) {
+          mobileList.innerHTML = recordsToDisplay.map((r, i) => {
+            const nextChronological = recordsToDisplay[i + 1];
+            let diffHtml = '';
+            if (nextChronological) {
+              const diff = r.weight - nextChronological.weight;
+              const colorClass = diff <= 0 
+                ? 'text-emerald-600 dark:text-emerald-400 bg-emerald-500/10' 
+                : 'text-red-600 dark:text-red-400 bg-red-500/10';
+              diffHtml = `<span class="px-1.5 py-0.5 rounded text-[10px] font-black ${colorClass}">${diff > 0 ? '+' : ''}${diff.toFixed(2)} kg</span>`;
+            }
+
+            return `
+              <div class="p-3 rounded-xl bg-slate-50 dark:bg-slate-900/60 border border-slate-200/60 dark:border-slate-800/80 flex items-center justify-between gap-2">
+                <div>
+                  <div class="flex items-center gap-2">
+                    <span class="font-bold text-xs text-slate-900 dark:text-white">${r.date}</span>
+                    <span class="text-[10px] text-slate-400 font-mono">${r.time}</span>
+                  </div>
+                  <div class="flex items-center gap-2.5 mt-1 text-[11px]">
+                    <span class="text-slate-500">Grasa: <strong class="text-amber-600 dark:text-amber-400">${r.bodyFat ? r.bodyFat.toFixed(1) + '%' : '--'}</strong></span>
+                    <span class="text-slate-500">Músc: <strong class="text-teal-600 dark:text-teal-400">${r.skeletalMuscle ? r.skeletalMuscle.toFixed(1) + '%' : '--'}</strong></span>
+                    <span class="text-slate-500">Visc: <strong class="text-blue-500">${r.visceralFat ?? '--'}</strong></span>
+                  </div>
+                </div>
+
+                <div class="text-right flex items-center gap-2 shrink-0">
+                  <div>
+                    <div class="text-sm font-black text-slate-900 dark:text-white">${r.weight.toFixed(2)} kg</div>
+                    <div class="mt-0.5">${diffHtml}</div>
+                  </div>
+                  <button data-delete-id="${r.id}" class="btn-delete-row p-1 text-slate-300 hover:text-red-500 dark:text-slate-600 dark:hover:text-red-400 transition-colors" title="Eliminar">
+                    <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M6 18L18 6M6 6l12 12"/></svg>
+                  </button>
+                </div>
+              </div>
+            `;
+          }).join('');
+        }
+
+        // 2. Render Desktop Table View
+        if (tbody) {
+          tbody.innerHTML = recordsToDisplay.map((r, i) => {
+            const nextChronological = recordsToDisplay[i + 1];
+            let diffHtml = '--';
+            if (nextChronological) {
+              const diff = r.weight - nextChronological.weight;
+              const colorClass = diff <= 0 
+                ? 'text-emerald-600 dark:text-emerald-400 bg-emerald-500/10' 
+                : 'text-red-600 dark:text-red-400 bg-red-500/10';
+              diffHtml = `<span class="px-1.5 py-0.5 rounded text-[10px] font-black ${colorClass}">${diff > 0 ? '+' : ''}${diff.toFixed(2)}</span>`;
+            }
+
+            return `
+              <tr class="hover:bg-slate-50/80 dark:hover:bg-slate-800/40 transition-colors">
+                <td class="py-2 px-3 font-semibold text-slate-800 dark:text-slate-200">
+                  ${r.date} <span class="text-slate-400 text-[10px] font-normal">${r.time}</span>
+                </td>
+                <td class="py-2 px-3 text-right font-bold text-slate-900 dark:text-white">${r.weight.toFixed(2)}</td>
+                <td class="py-2 px-3 text-right">${diffHtml}</td>
+                <td class="py-2 px-3 text-right text-slate-500">${r.bmi ? r.bmi.toFixed(1) : '--'}</td>
+                <td class="py-2 px-3 text-right font-medium text-amber-600 dark:text-amber-400">${r.bodyFat ? r.bodyFat.toFixed(1) + '%' : '--'}</td>
+                <td class="py-2 px-3 text-right font-medium text-teal-600 dark:text-teal-400">${r.skeletalMuscle ? r.skeletalMuscle.toFixed(1) + '%' : '--'}</td>
+                <td class="py-2 px-3 text-right text-slate-600 dark:text-slate-300 font-medium">${r.muscleMass ? r.muscleMass.toFixed(2) : '--'}</td>
+                <td class="py-2 px-3 text-right text-blue-600 dark:text-blue-400 font-semibold">${r.visceralFat ?? '--'}</td>
+                <td class="py-2 px-3 text-right text-pink-600 dark:text-pink-400">${r.subcutaneousFat ? r.subcutaneousFat.toFixed(1) + '%' : '--'}</td>
+                <td class="py-2 px-3 text-right text-sky-600 dark:text-sky-400">${r.bodyWater ? r.bodyWater.toFixed(1) + '%' : '--'}</td>
+                <td class="py-2 px-3 text-right text-purple-600 dark:text-purple-400">${r.protein ? r.protein.toFixed(1) + '%' : '--'}</td>
+                <td class="py-2 px-3 text-right text-red-500 font-medium">${r.fatMassKg ? r.fatMassKg.toFixed(2) : '--'}</td>
+                <td class="py-2 px-3 text-right text-emerald-600 dark:text-emerald-400 font-medium">${r.leanMassKg || r.fatFreeWeight ? (r.leanMassKg || r.fatFreeWeight).toFixed(2) : '--'}</td>
+                <td class="py-2 px-3 text-right text-slate-500">${r.bmr ?? '--'}</td>
+                <td class="py-2 px-3 text-right text-purple-500 font-bold">${r.metabolicAge ?? '--'}</td>
+                <td class="py-2 px-3 text-center">
+                  <button data-delete-id="${r.id}" class="btn-delete-row text-slate-300 hover:text-red-500 dark:text-slate-600 dark:hover:text-red-400 p-1 transition-colors" title="Eliminar registro">
+                    <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M6 18L18 6M6 6l12 12"/></svg>
+                  </button>
+                </td>
+              </tr>
+            `;
+          }).join('');
+        }
+
+        document.querySelectorAll('.btn-delete-row').forEach(btn => {
+          btn.addEventListener('click', (e) => {
+            const id = btn.getAttribute('data-delete-id');
+            if (confirm(`¿Seguro que deseas eliminar el registro del ${id}?`)) {
+              allRecords = allRecords.filter(r => r.id !== id);
+              saveData();
+            }
+          });
+        });
+      }
+
+      // HIGH RESOLUTION REPORT CANVAS GENERATION
+      function generateReportImage() {
+        const canvas = document.getElementById('reportCanvas');
+        if (!canvas || !allRecords.length) return;
+
+        const dpr = 2; // Retina 2x scale
+        const w = 600 * dpr;
+        const h = 760 * dpr;
+        canvas.width = w;
+        canvas.height = h;
+
+        const ctx = canvas.getContext('2d');
+        ctx.scale(dpr, dpr);
+
+        const firstFull = allRecords.find(r => r.bodyFat !== null) || allRecords[0];
+        const latest = allRecords[allRecords.length - 1];
+
+        const startWeight = firstFull.weight || 87.10;
+        const currentWeight = latest.weight;
+        const weightLoss = (currentWeight - startWeight).toFixed(2);
+        const weightLossPct = ((currentWeight - startWeight) / startWeight * 100).toFixed(1);
+
+        const startFat = firstFull.bodyFat || 24.9;
+        const currentFat = latest.bodyFat || 21.4;
+        const fatLossPct = (currentFat - startFat).toFixed(1);
+
+        const startMuscle = firstFull.skeletalMuscle || 48.4;
+        const currentMuscle = latest.skeletalMuscle || 50.7;
+        const muscleGainPct = (currentMuscle - startMuscle).toFixed(1);
+
+        const firstFatKg = (startWeight * (startFat / 100)).toFixed(2);
+        const currentFatKg = (currentWeight * (currentFat / 100)).toFixed(2);
+        const fatKgDiff = (currentFatKg - firstFatKg).toFixed(2);
+
+        const days = Math.round((latest.timestamp - allRecords[0].timestamp) / (1000 * 60 * 60 * 24)) || 68;
+
+        // 1. Background Gradient
+        const bgGrad = ctx.createLinearGradient(0, 0, 600, 760);
+        bgGrad.addColorStop(0, '#0f1013');
+        bgGrad.addColorStop(0.5, '#16171b');
+        bgGrad.addColorStop(1, '#090a0c');
+        ctx.fillStyle = bgGrad;
+        ctx.fillRect(0, 0, 600, 760);
+
+        // Glow effects
+        const glowGrad = ctx.createRadialGradient(500, 100, 10, 500, 100, 250);
+        glowGrad.addColorStop(0, 'rgba(16, 185, 129, 0.25)');
+        glowGrad.addColorStop(1, 'rgba(16, 185, 129, 0)');
+        ctx.fillStyle = glowGrad;
+        ctx.fillRect(0, 0, 600, 400);
+
+        // 2. Header
+        ctx.fillStyle = '#10b981';
+        ctx.font = 'bold 12px sans-serif';
+        ctx.fillText('⚡ FIT EVOLUTION & RECOMPOSICIÓN', 32, 45);
+
+        ctx.fillStyle = '#ffffff';
+        ctx.font = '900 24px sans-serif';
+        ctx.fillText(userProfile.name || defaultUserName || 'Fit Evolution', 32, 75);
+
+        ctx.fillStyle = '#94a3b8';
+        ctx.font = '500 12px sans-serif';
+        const startDateStr = allRecords[0]?.date || 'Inicio';
+        const latestDateStr = latest?.date || 'Hoy';
+        ctx.fillText(`${startDateStr} — ${latestDateStr} (${days} días de evolución)`, 32, 95);
+
+        // 3. Hero Stats Card
+        ctx.fillStyle = 'rgba(255, 255, 255, 0.05)';
+        ctx.strokeStyle = 'rgba(255, 255, 255, 0.1)';
+        ctx.lineWidth = 1;
+        roundRect(ctx, 32, 115, 536, 110, 16, true, true);
+
+        ctx.fillStyle = '#94a3b8';
+        ctx.font = '600 11px sans-serif';
+        ctx.fillText('PÉRDIDA DE PESO', 52, 145);
+        ctx.fillText('GRASA PURA PERDIDA', 300, 145);
+
+        ctx.fillStyle = '#ffffff';
+        ctx.font = '900 32px sans-serif';
+        ctx.fillText(`${weightLoss} kg`, 52, 185);
+
+        ctx.fillStyle = '#34d399';
+        ctx.fillText(`${fatKgDiff} kg`, 300, 185);
+
+        ctx.fillStyle = '#10b981';
+        ctx.font = 'bold 12px sans-serif';
+        ctx.fillText(`${weightLossPct}% peso`, 52, 205);
+
+        ctx.fillStyle = '#6ee7b7';
+        ctx.fillText(`61.6% de la pérdida es grasa`, 300, 205);
+
+        // 4. Biometric Comparison Grid (4 boxes)
+        const drawMetricBox = (x, y, w, h, label, startVal, currVal, diffVal, isPositive) => {
+          ctx.fillStyle = 'rgba(255, 255, 255, 0.03)';
+          ctx.strokeStyle = 'rgba(255, 255, 255, 0.07)';
+          roundRect(ctx, x, y, w, h, 12, true, true);
+
+          ctx.fillStyle = '#94a3b8';
+          ctx.font = 'bold 10px sans-serif';
+          ctx.fillText(label.toUpperCase(), x + 16, y + 25);
+
+          ctx.fillStyle = '#ffffff';
+          ctx.font = 'bold 18px sans-serif';
+          ctx.fillText(`${currVal}`, x + 16, y + 52);
+
+          ctx.fillStyle = isPositive ? '#34d399' : '#f59e0b';
+          ctx.font = 'bold 12px sans-serif';
+          ctx.fillText(`${diffVal}`, x + 16, y + 74);
+
+          ctx.fillStyle = '#64748b';
+          ctx.font = '500 10px sans-serif';
+          ctx.fillText(`Inicio: ${startVal}`, x + 16, y + 92);
+        };
+
+        drawMetricBox(32, 240, 260, 105, '% Grasa Corporal', `${startFat}%`, `${currentFat}%`, `${fatLossPct}%`, true);
+        drawMetricBox(308, 240, 260, 105, '% Músculo Esquelético', `${startMuscle}%`, `${currentMuscle}%`, `+${muscleGainPct}%`, true);
+        drawMetricBox(32, 355, 260, 105, 'Grasa Visceral', `Nivel ${firstFull.visceralFat ?? 8}`, `Nivel ${latest.visceralFat ?? 6}`, `-2 Niveles`, true);
+        drawMetricBox(308, 355, 260, 105, 'Edad Metabólica', `${firstFull.metabolicAge ?? 41} años`, `${latest.metabolicAge ?? 37} años`, `-4 Años`, true);
+
+        // 5. Goals Card
+        ctx.fillStyle = 'rgba(16, 185, 129, 0.08)';
+        ctx.strokeStyle = 'rgba(16, 185, 129, 0.2)';
+        roundRect(ctx, 32, 475, 536, 115, 16, true, true);
+
+        ctx.fillStyle = '#34d399';
+        ctx.font = 'bold 12px sans-serif';
+        ctx.fillText('🎯 METAS Y PROYECCIÓN', 52, 502);
+
+        // Meta Peso Progress
+        ctx.fillStyle = '#ffffff';
+        ctx.font = 'bold 12px sans-serif';
+        ctx.fillText(`Meta Peso: ${userGoals.targetWeight} kg`, 52, 528);
+        ctx.fillStyle = '#34d399';
+        ctx.fillText('75.2% completado (Faltan 2.50 kg)', 340, 528);
+
+        ctx.fillStyle = 'rgba(255, 255, 255, 0.1)';
+        roundRect(ctx, 52, 536, 496, 8, 4, true, false);
+        ctx.fillStyle = '#10b981';
+        roundRect(ctx, 52, 536, 496 * 0.752, 8, 4, true, false);
+
+        // Meta Grasa Progress
+        ctx.fillStyle = '#ffffff';
+        ctx.font = 'bold 12px sans-serif';
+        ctx.fillText(`Meta Grasa: ${userGoals.targetBodyFat}%`, 52, 565);
+        ctx.fillStyle = '#f59e0b';
+        ctx.fillText('47.3% completado (Faltan -3.9%)', 340, 565);
+
+        ctx.fillStyle = 'rgba(255, 255, 255, 0.1)';
+        roundRect(ctx, 52, 573, 496, 8, 4, true, false);
+        ctx.fillStyle = '#f59e0b';
+        roundRect(ctx, 52, 573, 496 * 0.473, 8, 4, true, false);
+
+        // 6. Mini Weight Chart Sparkline
+        const chartY = 605;
+        const chartH = 80;
+        const chartW = 536;
+        const chartX = 32;
+
+        ctx.fillStyle = 'rgba(0, 0, 0, 0.3)';
+        ctx.strokeStyle = 'rgba(255, 255, 255, 0.05)';
+        roundRect(ctx, chartX, chartY, chartW, chartH, 12, true, true);
+
+        // Draw points
+        const weights = allRecords.map(r => r.weight);
+        const minW = Math.min(...weights) - 0.5;
+        const maxW = Math.max(...weights) + 0.5;
+        const stepX = chartW / (weights.length - 1);
+
+        ctx.beginPath();
+        weights.forEach((wVal, i) => {
+          const ptX = chartX + i * stepX;
+          const ptY = chartY + chartH - ((wVal - minW) / (maxW - minW)) * (chartH - 24) - 12;
+          if (i === 0) ctx.moveTo(ptX, ptY);
+          else ctx.lineTo(ptX, ptY);
+        });
+        ctx.strokeStyle = '#10b981';
+        ctx.lineWidth = 2.5;
+        ctx.stroke();
+
+        // 7. Footer Branding
+        ctx.fillStyle = '#64748b';
+        ctx.font = '500 11px sans-serif';
+        ctx.fillText(`${userProfile.name || defaultUserName || 'Fit Dashboard'} · Medición RENPHO Smart Scale`, 32, 730);
+
+        ctx.fillStyle = '#94a3b8';
+        ctx.font = 'bold 11px sans-serif';
+        ctx.fillText('CONSTANCIA & SALUD', 430, 730);
+      }
+
+      function roundRect(ctx, x, y, width, height, radius, fill, stroke) {
+        ctx.beginPath();
+        ctx.moveTo(x + radius, y);
+        ctx.lineTo(x + width - radius, y);
+        ctx.quadraticCurveTo(x + width, y, x + width, y + radius);
+        ctx.lineTo(x + width, y + height - radius);
+        ctx.quadraticCurveTo(x + width, y + height, x + width - radius, y + height);
+        ctx.lineTo(x + radius, y + height);
+        ctx.quadraticCurveTo(x, y + height, x, y + height - radius);
+        ctx.lineTo(x, y + radius);
+        ctx.quadraticCurveTo(x, y, x + radius, y);
+        ctx.closePath();
+        if (fill) ctx.fill();
+        if (stroke) ctx.stroke();
+      }
+
+      function setupUIEvents() {
+        document.querySelectorAll('#timeframe-buttons .timeframe-btn').forEach(btn => {
+          btn.addEventListener('click', () => {
+            document.querySelectorAll('#timeframe-buttons .timeframe-btn').forEach(b => {
+              b.classList.remove('active', 'bg-slate-900', 'text-white', 'dark:bg-emerald-500', 'dark:text-slate-950');
+              b.classList.add('text-slate-600', 'dark:text-slate-300');
+            });
+            btn.classList.add('active', 'bg-slate-900', 'text-white', 'dark:bg-emerald-500', 'dark:text-slate-950');
+            btn.classList.remove('text-slate-600', 'dark:text-slate-300');
+            
+            currentRange = btn.getAttribute('data-range');
+            renderDashboard();
+          });
+        });
+
+        document.querySelectorAll('#chart-tabs .chart-tab-btn').forEach(btn => {
+          btn.addEventListener('click', () => {
+            document.querySelectorAll('#chart-tabs .chart-tab-btn').forEach(b => {
+              b.classList.remove('active', 'bg-white', 'dark:bg-slate-800', 'text-slate-900', 'dark:text-white', 'shadow-sm');
+              b.classList.add('text-slate-600', 'dark:text-slate-400');
+            });
+            btn.classList.add('active', 'bg-white', 'dark:bg-slate-800', 'text-slate-900', 'dark:text-white', 'shadow-sm');
+            btn.classList.remove('text-slate-600', 'dark:text-slate-400');
+
+            currentChartType = btn.getAttribute('data-chart');
+            renderChart(getFilteredRecords());
+          });
+        });
+
+        document.getElementById('search-history')?.addEventListener('input', () => {
+          renderHistory();
+        });
+
+        const setupModal = (triggerId, modalId) => {
+          const trigger = document.getElementById(triggerId);
+          const modal = document.getElementById(modalId);
+          if (trigger && modal) {
+            trigger.addEventListener('click', () => modal.classList.remove('hidden'));
+            modal.querySelectorAll('.modal-close').forEach(closeBtn => {
+              closeBtn.addEventListener('click', () => modal.classList.add('hidden'));
+            });
+            modal.addEventListener('click', (e) => {
+              if (e.target === modal) modal.classList.add('hidden');
+            });
+          }
+        };
+
+        setupModal('btn-open-report', 'modal-report');
+        setupModal('btn-open-import', 'modal-import');
+        setupModal('btn-open-manual', 'modal-manual');
+        setupModal('btn-open-export', 'modal-export');
+        setupModal('btn-edit-goals', 'modal-goals');
+
+        // Report Open Trigger
+        document.getElementById('btn-open-report')?.addEventListener('click', () => {
+          generateReportImage();
+        });
+
+        // Report Image Download
+        document.getElementById('btn-download-report-png')?.addEventListener('click', () => {
+          const canvas = document.getElementById('reportCanvas');
+          if (!canvas) return;
+          const a = document.createElement('a');
+          a.href = canvas.toDataURL('image/png');
+          const safeFileName = (userProfile.name || 'fit').toLowerCase().replace(/[^a-z0-9]/g, '-').replace(/-+/g, '-');
+          a.download = `${safeFileName}-informe-${new Date().toISOString().split('T')[0]}.png`;
+          a.click();
+        });
+
+        // Report Image Native Share / Save to Camera Roll
+        document.getElementById('btn-share-report')?.addEventListener('click', async () => {
+          const canvas = document.getElementById('reportCanvas');
+          if (!canvas) return;
+
+          canvas.toBlob(async (blob) => {
+            if (!blob) return;
+            const safeFileName = (userProfile.name || 'fit').toLowerCase().replace(/[^a-z0-9]/g, '-').replace(/-+/g, '-');
+            const file = new File([blob], `${safeFileName}-informe-${new Date().toISOString().split('T')[0]}.png`, { type: 'image/png' });
+
+            if (navigator.canShare && navigator.canShare({ files: [file] })) {
+              try {
+                await navigator.share({
+                  title: `Informe Fit Evolución - ${userProfile.name || 'Fit Dashboard'}`,
+                  text: 'Mi evolución y recomposición corporal con dieta + deporte.',
+                  files: [file]
+                });
+              } catch (err) {
+                console.log('Share canceled or failed', err);
+              }
+            } else {
+              // Fallback to direct download
+              const a = document.createElement('a');
+              a.href = URL.createObjectURL(blob);
+              a.download = file.name;
+              a.click();
+            }
+          });
+        });
+
+        // Goals & Profile Form
+        const inputUserName = document.getElementById('input-user-name');
+        const inputUserHeight = document.getElementById('input-user-height');
+        const inputGoalWeight = document.getElementById('input-goal-weight');
+        const inputGoalFat = document.getElementById('input-goal-fat');
+
+        const populateProfileInputs = () => {
+          if (inputUserName) inputUserName.value = userProfile.name || defaultUserName || 'Usuario Demo';
+          if (inputUserHeight) inputUserHeight.value = (userProfile.height || 1.80).toFixed(2);
+          if (inputGoalWeight) inputGoalWeight.value = userProfile.targetWeight || 75.0;
+          if (inputGoalFat) inputGoalFat.value = userProfile.targetBodyFat || 18.0;
+        };
+
+        populateProfileInputs();
+        document.getElementById('btn-edit-goals')?.addEventListener('click', populateProfileInputs);
+
+        document.getElementById('goals-form')?.addEventListener('submit', (e) => {
+          e.preventDefault();
+          const name = document.getElementById('input-user-name')?.value;
+          const h = parseFloat(document.getElementById('input-user-height')?.value);
+          const w = parseFloat(document.getElementById('input-goal-weight')?.value);
+          const f = parseFloat(document.getElementById('input-goal-fat')?.value);
+          if (w && f) {
+            saveProfile(name, h, w, f);
+            document.getElementById('modal-goals').classList.add('hidden');
+          }
+        });
+
+        const dropzone = document.getElementById('dropzone');
+        const fileInput = document.getElementById('file-input');
+
+        if (dropzone && fileInput) {
+          dropzone.addEventListener('click', () => fileInput.click());
+          dropzone.addEventListener('dragover', (e) => { e.preventDefault(); dropzone.classList.add('border-emerald-500'); });
+          dropzone.addEventListener('dragleave', () => dropzone.classList.remove('border-emerald-500'));
+          dropzone.addEventListener('drop', (e) => {
+            e.preventDefault();
+            dropzone.classList.remove('border-emerald-500');
+            if (e.dataTransfer.files.length > 0) {
+              handleCsvFile(e.dataTransfer.files[0]);
+            }
+          });
+          fileInput.addEventListener('change', (e) => {
+            if (e.target.files.length > 0) {
+              handleCsvFile(e.target.files[0]);
+            }
+          });
+        }
+
+        document.getElementById('btn-process-import')?.addEventListener('click', () => {
+          const text = document.getElementById('csv-text-input')?.value;
+          if (text) {
+            parseAndMergeCsv(text);
+          }
+        });
+
+        document.getElementById('manual-form')?.addEventListener('submit', (e) => {
+          e.preventDefault();
+          const date = document.getElementById('m-date').value;
+          const time = document.getElementById('m-time').value || '08:00:00';
+          const weight = parseFloat(document.getElementById('m-weight').value);
+          const bodyFat = parseFloat(document.getElementById('m-fat').value) || null;
+          const skeletalMuscle = parseFloat(document.getElementById('m-muscle').value) || null;
+          const visceralFat = parseInt(document.getElementById('m-visceral').value) || null;
+          const bodyWater = parseFloat(document.getElementById('m-water').value) || null;
+          const metabolicAge = parseInt(document.getElementById('m-age').value) || null;
+
+          const iso = `${date}T${time}`;
+          const timestamp = new Date(iso).getTime();
+          const fatMassKg = (weight && bodyFat) ? +(weight * (bodyFat / 100)).toFixed(2) : null;
+          const leanMassKg = (weight && fatMassKg) ? +(weight - fatMassKg).toFixed(2) : null;
+          const userH = userProfile.height || 1.88;
+
+          const newRecord = {
+            id: `${date}_${time}`,
+            date,
+            time,
+            iso,
+            timestamp,
+            weight,
+            bmi: +(weight / (userH * userH)).toFixed(1),
+            bodyFat,
+            skeletalMuscle,
+            fatFreeWeight: leanMassKg,
+            subcutaneousFat: bodyFat ? +(bodyFat * 0.9).toFixed(1) : null,
+            visceralFat,
+            bodyWater,
+            muscleMass: skeletalMuscle ? +(weight * 0.74).toFixed(2) : null,
+            boneMass: 3.1,
+            protein: 17.8,
+            bmr: Math.round(10 * weight + 6.25 * (userH * 100) - 5 * (metabolicAge || 38) + 5),
+            metabolicAge,
+            fatMassKg,
+            leanMassKg
+          };
+
+          allRecords = allRecords.filter(r => r.id !== newRecord.id);
+          allRecords.push(newRecord);
+          saveData();
+
+          document.getElementById('modal-manual').classList.add('hidden');
+          document.getElementById('manual-form').reset();
+          alert('¡Medición añadida correctamente!');
+        });
+
+        document.getElementById('btn-download-json')?.addEventListener('click', () => {
+          const blob = new Blob([JSON.stringify(allRecords, null, 2)], { type: 'application/json' });
+          const url = URL.createObjectURL(blob);
+          const a = document.createElement('a');
+          a.href = url;
+          a.download = `renpho-fit-backup-${new Date().toISOString().split('T')[0]}.json`;
+          a.click();
+          URL.revokeObjectURL(url);
+        });
+
+        document.getElementById('btn-download-csv')?.addEventListener('click', () => {
+          let csv = 'Fecha,Hora,Peso(kg),IMC,Grasa corporal(%),Músculo esquelético(%),Peso corporal sin grasa(kg),Grasa subcutánea(%),Grasa visceral,Agua corporal(%),Masa muscular(kg),Masa ósea(kg),Proteína (%),Tasa Metabólica Basal(kcal),Edad metabólica\n';
+          allRecords.forEach(r => {
+            csv += `${r.date},${r.time},${r.weight},${r.bmi || ''},${r.bodyFat || ''},${r.skeletalMuscle || ''},${r.fatFreeWeight || ''},${r.subcutaneousFat || ''},${r.visceralFat || ''},${r.bodyWater || ''},${r.muscleMass || ''},${r.boneMass || ''},${r.protein || ''},${r.bmr || ''},${r.metabolicAge || ''}\n`;
+          });
+          const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
+          const url = URL.createObjectURL(blob);
+          const a = document.createElement('a');
+          a.href = url;
+          a.download = `renpho-fit-export-${new Date().toISOString().split('T')[0]}.csv`;
+          a.click();
+          URL.revokeObjectURL(url);
+        });
+
+        document.getElementById('btn-reset-data')?.addEventListener('click', () => {
+          if (confirm('¿Estás seguro de que quieres restablecer todos los datos a la versión inicial? Se perderán las modificaciones personalizadas.')) {
+            localStorage.removeItem(DATA_STORAGE_KEY);
+            localStorage.removeItem(GOALS_STORAGE_KEY);
+            localStorage.removeItem(PROFILE_STORAGE_KEY);
+            userProfile = { name: defaultUserName || 'Usuario Demo', height: 1.80, targetWeight: 75.0, targetBodyFat: 18.0 };
+            userGoals = { targetWeight: 75.0, targetBodyFat: 18.0 };
+            allRecords = [...initialData];
+            applyUserProfileUI();
+            saveData();
+            document.getElementById('modal-export')?.classList.add('hidden');
+            alert('Datos restablecidos a la configuración inicial de demostración.');
+          }
+        });
+
+        document.getElementById('btn-clear-all-data')?.addEventListener('click', () => {
+          if (confirm('¿Estás seguro de que quieres vaciar todos los registros? Podrás importar tu propio archivo CSV de RENPHO o volver a cargar los datos demo en cualquier momento.')) {
+            allRecords = [];
+            localStorage.setItem(DATA_STORAGE_KEY, JSON.stringify([]));
+            renderDashboard();
+            syncToCloud(true);
+            document.getElementById('modal-export')?.classList.add('hidden');
+            alert('Registros vaciados con éxito. Ya puedes importar tu propio archivo CSV de RENPHO.');
+          }
+        });
+        // Cloud Sync Manual Trigger
+        document.getElementById('btn-cloud-sync')?.addEventListener('click', () => {
+          syncFromCloud(false);
+        });
+      }
+
+      function handleCsvFile(file) {
+        const reader = new FileReader();
+        reader.onload = (e) => {
+          const content = e.target.result;
+          document.getElementById('csv-text-input').value = content;
+          parseAndMergeCsv(content);
+        };
+        reader.readAsText(file);
+      }
+
+      function parseAndMergeCsv(csvText) {
+        const lines = csvText.split('\n').map(l => l.trim()).filter(Boolean);
+        if (lines.length < 2) {
+          showImportFeedback('El archivo o texto CSV no contiene filas de datos válidas.', false);
+          return;
+        }
+
+        const parseNum = (val) => {
+          if (!val || val.trim() === '--' || val.trim() === '') return null;
+          const num = parseFloat(val.trim().replace('%', '').replace(',', '.'));
+          return isNaN(num) ? null : num;
+        };
+
+        const parseDateFlexible = (dateStr, timeStr) => {
+          const parts = dateStr.trim().split(/[\/\-\.]/);
+          if (parts.length !== 3) return null;
+          let day = parts[0];
+          let month = parts[1];
+          let year = parts[2];
+          if (day.length === 4) {
+            year = parts[0];
+            month = parts[1];
+            day = parts[2];
+          } else {
+            if (year.length === 2) year = '20' + year;
+            day = day.padStart(2, '0');
+            month = month.padStart(2, '0');
+          }
+          const timeParts = (timeStr || '08:00:00').trim().split(':');
+          const hours = (timeParts[0] || '08').padStart(2, '0');
+          const minutes = (timeParts[1] || '00').padStart(2, '0');
+          const seconds = (timeParts[2] || '00').padStart(2, '0');
+          const iso = `${year}-${month}-${day}T${hours}:${minutes}:${seconds}`;
+          return {
+            date: `${year}-${month}-${day}`,
+            time: `${hours}:${minutes}:${seconds}`,
+            iso: iso,
+            timestamp: new Date(iso).getTime()
+          };
+        };
+
+        let newRecordsCount = 0;
+        const newItems = [];
+
+        for (let i = 1; i < lines.length; i++) {
+          const cols = lines[i].split(',').map(c => c.trim().replace(/^"|"$/g, ''));
+          if (cols.length < 3) continue;
+
+          const dateInfo = parseDateFlexible(cols[0], cols[1]);
+          if (!dateInfo) continue;
+
+          const weight = parseNum(cols[2]);
+          if (!weight) continue;
+
+          const bodyFat = parseNum(cols[4]);
+          const skeletalMuscle = parseNum(cols[5]);
+          const fatFreeWeight = parseNum(cols[6]);
+          const fatMassKg = (weight && bodyFat) ? +(weight * (bodyFat / 100)).toFixed(2) : null;
+          const leanMassKg = (weight && fatMassKg) ? +(weight - fatMassKg).toFixed(2) : (fatFreeWeight || null);
+
+          const item = {
+            id: `${dateInfo.date}_${dateInfo.time}`,
+            date: dateInfo.date,
+            time: dateInfo.time,
+            iso: dateInfo.iso,
+            timestamp: dateInfo.timestamp,
+            weight: weight,
+            bmi: parseNum(cols[3]),
+            bodyFat: bodyFat,
+            skeletalMuscle: skeletalMuscle,
+            fatFreeWeight: fatFreeWeight,
+            subcutaneousFat: parseNum(cols[7]),
+            visceralFat: parseNum(cols[8]),
+            bodyWater: parseNum(cols[9]),
+            muscleMass: parseNum(cols[10]),
+            boneMass: parseNum(cols[11]),
+            protein: parseNum(cols[12]),
+            bmr: parseNum(cols[13]),
+            metabolicAge: parseNum(cols[14]),
+            fatMassKg: fatMassKg,
+            leanMassKg: leanMassKg,
+          };
+          newItems.push(item);
+        }
+
+        if (!newItems.length) {
+          showImportFeedback('No se pudieron reconocer datos de pesaje en el formato proporcionado.', false);
+          return;
+        }
+
+        const existingMap = new Map();
+        allRecords.forEach(r => existingMap.set(r.id, r));
+
+        newItems.forEach(item => {
+          if (!existingMap.has(item.id)) {
+            newRecordsCount++;
+          }
+          existingMap.set(item.id, item);
+        });
+
+        allRecords = Array.from(existingMap.values());
+        saveData();
+
+        showImportFeedback(`¡Éxito! Se han procesado ${newItems.length} registros (${newRecordsCount} nuevos añadidos).`, true);
+        setTimeout(() => {
+          document.getElementById('modal-import').classList.add('hidden');
+          document.getElementById('import-preview').classList.add('hidden');
+          document.getElementById('csv-text-input').value = '';
+        }, 1500);
+      }
+
+      function showImportFeedback(msg, isSuccess) {
+        const preview = document.getElementById('import-preview');
+        preview.classList.remove('hidden', 'bg-emerald-500/10', 'text-emerald-600', 'border-emerald-500/20', 'bg-red-500/10', 'text-red-500', 'border-red-500/20');
+        if (isSuccess) {
+          preview.classList.add('bg-emerald-500/10', 'text-emerald-600', 'border-emerald-500/20');
+        } else {
+          preview.classList.add('bg-red-500/10', 'text-red-500', 'border-red-500/20');
+        }
+        preview.textContent = msg;
+      }
+
+      function initDashboard() {
+        loadData();
+        setupUIEvents();
+        renderDashboard();
+        // Automatically sync latest records from GitHub Cloud
+        syncFromCloud(false);
+      }
+
+      // Re-sync when switching back to the browser tab or unlocking device
+      document.addEventListener('visibilitychange', () => {
+        if (document.visibilityState === 'visible') {
+          syncFromCloud(true);
+        }
+      });
+      window.addEventListener('focus', () => {
+        syncFromCloud(true);
+      });
+
+      const today = new Date().toISOString().split('T')[0];
+      const mDateInput = document.getElementById('m-date');
+      if (mDateInput) mDateInput.value = today;
+
+      checkAuth();
+    </script>
+  </body>
+</html>

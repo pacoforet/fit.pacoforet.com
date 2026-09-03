@@ -1,0 +1,9 @@
+node_modules/
+dist/
+.astro/
+.env
+.env.local
+.env.*.local
+!.env.example
+.DS_Store
+.vercel

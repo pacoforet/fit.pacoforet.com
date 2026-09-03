@@ -1,0 +1,19 @@
+{
+  "name": "Fit Evolution Dashboard",
+  "short_name": "Fit Dashboard",
+  "description": "Dashboard de Evolución Fitness y Composición Corporal",
+  "start_url": "/",
+  "scope": "/",
+  "display": "standalone",
+  "background_color": "#0f1013",
+  "theme_color": "#0f1013",
+  "orientation": "portrait-primary",
+  "icons": [
+    {
+      "src": "/fit-icon.svg",
+      "sizes": "192x192 512x512",
+      "type": "image/svg+xml",
+      "purpose": "any maskable"
+    }
+  ]
+}
