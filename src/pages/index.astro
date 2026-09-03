@@ -105,7 +105,7 @@ const defaultUserName = import.meta.env.PUBLIC_USER_NAME || "Usuario Demo";
 
           <button 
             type="submit" 
-            class="w-full py-3.5 px-4 bg-emerald-600 hover:bg-emerald-500 active:bg-emerald-700 text-white font-semibold rounded-xl shadow-lg shadow-emerald-600/25 transition-all flex items-center justify-center gap-2 text-sm"
+            class="w-full py-3.5 px-4 bg-emerald-600 hover:bg-emerald-500 active:bg-emerald-700 text-white font-semibold rounded-xl shadow-lg shadow-emerald-600/25 transition-all flex items-center justify-center gap-2 text-sm cursor-pointer"
           >
             <span>Desbloquear</span>
             <svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
@@ -113,6 +113,26 @@ const defaultUserName = import.meta.env.PUBLIC_USER_NAME || "Usuario Demo";
             </svg>
           </button>
         </form>
+
+        <div class="relative my-4">
+          <div class="absolute inset-0 flex items-center">
+            <div class="w-full border-t border-slate-200 dark:border-slate-800"></div>
+          </div>
+          <div class="relative flex justify-center text-xs uppercase">
+            <span class="bg-white dark:bg-[#18191d] px-2 text-slate-400 text-[10px] font-medium tracking-wider">o prueba sin cuenta</span>
+          </div>
+        </div>
+
+        <button 
+          type="button" 
+          id="btn-demo-access" 
+          class="w-full py-3 px-4 rounded-xl border border-slate-200 dark:border-slate-700 hover:border-emerald-500/50 bg-slate-50 dark:bg-slate-900/60 hover:bg-emerald-500/5 text-slate-700 dark:text-slate-200 hover:text-emerald-600 dark:hover:text-emerald-400 text-xs font-semibold transition-all flex items-center justify-center gap-2 cursor-pointer shadow-sm active:scale-[0.98]"
+        >
+          <svg class="w-4 h-4 text-emerald-500" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" d="M3.75 13.5l10.5-11.25L12 10.5h8.25L9.75 21.75 12 13.5H3.75z"/>
+          </svg>
+          <span>Acceder en modo Demo (Datos de prueba)</span>
+        </button>
 
         <div class="mt-5 text-center">
           <p class="text-[11px] text-slate-400">
@@ -1182,12 +1202,13 @@ const defaultUserName = import.meta.env.PUBLIC_USER_NAME || "Usuario Demo";
       };
 
       function applyUserProfileUI() {
-        const name = userProfile.name || defaultUserName || "Usuario Demo";
+        const isDemo = isDemoSession();
+        const name = isDemo ? "Usuario Demo" : (userProfile.name || defaultUserName || "Usuario Demo");
         const headerName = document.getElementById('header-user-name');
         if (headerName) headerName.textContent = name;
         const footerName = document.getElementById('footer-user-name');
         if (footerName) footerName.textContent = name;
-        document.title = `Fit Dashboard | ${name}`;
+        document.title = isDemo ? "Fit Dashboard | Demo" : `Fit Dashboard | ${name}`;
         
         const ffmiLabel = document.getElementById('sec-ffmi-norm-label');
         if (ffmiLabel) {
@@ -1247,6 +1268,12 @@ const defaultUserName = import.meta.env.PUBLIC_USER_NAME || "Usuario Demo";
         return hashArray.map(b => b.toString(16).padStart(2, '0')).join('');
       }
 
+      const DEMO_SESSION_KEY = "demo_session";
+
+      function isDemoSession() {
+        return localStorage.getItem(AUTH_STORAGE_KEY) === DEMO_SESSION_KEY;
+      }
+
       function checkAuth() {
         if (!ENABLE_AUTH) {
           document.getElementById('auth-gate').classList.add('hidden');
@@ -1257,7 +1284,7 @@ const defaultUserName = import.meta.env.PUBLIC_USER_NAME || "Usuario Demo";
           return;
         }
         const session = localStorage.getItem(AUTH_STORAGE_KEY);
-        if (session === AUTH_HASH) {
+        if (session === AUTH_HASH || session === DEMO_SESSION_KEY) {
           document.getElementById('auth-gate').classList.add('hidden');
           document.getElementById('dashboard-app').classList.remove('hidden');
           requestAnimationFrame(() => {
@@ -1269,10 +1296,24 @@ const defaultUserName = import.meta.env.PUBLIC_USER_NAME || "Usuario Demo";
         }
       }
 
+      document.getElementById('btn-demo-access')?.addEventListener('click', () => {
+        localStorage.setItem(AUTH_STORAGE_KEY, DEMO_SESSION_KEY);
+        document.getElementById('login-error')?.classList.add('hidden');
+        checkAuth();
+      });
+
       document.getElementById('login-form')?.addEventListener('submit', async (e) => {
         e.preventDefault();
         const user = document.getElementById('login-user').value.trim();
         const pass = document.getElementById('login-pass').value.trim();
+
+        if (user.toLowerCase() === 'demo' && pass.toLowerCase() === 'demo') {
+          localStorage.setItem(AUTH_STORAGE_KEY, DEMO_SESSION_KEY);
+          document.getElementById('login-error')?.classList.add('hidden');
+          checkAuth();
+          return;
+        }
+
         const hash = await sha256(`${user}:${pass}`);
 
         if (hash === AUTH_HASH) {
@@ -1310,7 +1351,12 @@ const defaultUserName = import.meta.env.PUBLIC_USER_NAME || "Usuario Demo";
         const btn = document.getElementById('btn-cloud-sync');
         if (!dot || !label || !btn) return;
 
-        if (state === 'syncing') {
+        if (state === 'demo') {
+          dot.className = 'w-1.5 h-1.5 rounded-full bg-sky-500';
+          label.textContent = text || 'Demo';
+          btn.className = 'inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-semibold bg-sky-500/10 text-sky-600 dark:text-sky-400 border border-sky-500/20';
+          btn.title = 'Modo Demostración activo con datos de prueba. Sincronización en la nube desactivada.';
+        } else if (state === 'syncing') {
           dot.className = 'w-1.5 h-1.5 rounded-full bg-amber-500 animate-ping';
           label.textContent = text || 'Sincronizando...';
           btn.className = 'inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-semibold bg-amber-500/10 text-amber-600 dark:text-amber-400 border border-amber-500/20';
@@ -1332,6 +1378,10 @@ const defaultUserName = import.meta.env.PUBLIC_USER_NAME || "Usuario Demo";
       }
 
       async function syncFromCloud(silent = false) {
+        if (isDemoSession()) {
+          setSyncBadge('demo', 'Demo');
+          return;
+        }
         const session = localStorage.getItem(AUTH_STORAGE_KEY);
         if (!session) return;
 
@@ -1423,6 +1473,10 @@ const defaultUserName = import.meta.env.PUBLIC_USER_NAME || "Usuario Demo";
       }
 
       async function syncToCloud(silent = false) {
+        if (isDemoSession()) {
+          setSyncBadge('demo', 'Demo');
+          return;
+        }
         const session = localStorage.getItem(AUTH_STORAGE_KEY);
         if (!session) return;
 
@@ -1457,6 +1511,11 @@ const defaultUserName = import.meta.env.PUBLIC_USER_NAME || "Usuario Demo";
 
       function loadData() {
         loadGoals();
+        if (isDemoSession()) {
+          allRecords = [...initialData];
+          allRecords.sort((a, b) => a.timestamp - b.timestamp);
+          return;
+        }
         const stored = localStorage.getItem(DATA_STORAGE_KEY);
         if (stored) {
           try {
