@@ -1155,6 +1155,20 @@ const defaultUserName = import.meta.env.PUBLIC_USER_NAME || "Usuario Demo";
           </button>
 
           <button 
+            id="btn-purge-demo-data" 
+            class="w-full flex items-center justify-between p-3 rounded-xl bg-amber-500/10 hover:bg-amber-500/15 border border-amber-500/25 text-amber-700 dark:text-amber-300 transition-colors text-left cursor-pointer"
+          >
+            <div>
+              <div class="text-xs font-bold flex items-center gap-1.5">
+                <span>Depurar Registros Demo Mezclados</span>
+                <span class="px-1.5 py-0.5 text-[9px] font-black rounded bg-amber-500/20 text-amber-600 dark:text-amber-400">Sanitizar</span>
+              </div>
+              <div class="text-[10px] text-amber-700/80 dark:text-amber-400/80">Elimina automáticamente los 10 pesajes de prueba (15-24 ago) y sincroniza</div>
+            </div>
+            <svg class="w-4 h-4 text-amber-500" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M12 9v3.75m-9.303 3.376c-.866 1.5.217 3.374 1.948 3.374h14.71c1.73 0 2.813-1.874 1.948-3.374L13.949 3.378c-.866-1.5-3.032-1.5-3.898 0L2.697 16.126zM12 15.75h.007v.008H12v-.008z"/></svg>
+          </button>
+
+          <button 
             id="btn-reset-data" 
             class="w-full flex items-center justify-between p-3 rounded-xl bg-slate-100 dark:bg-slate-800/80 hover:bg-slate-200 dark:hover:bg-slate-700/80 border border-slate-200 dark:border-slate-700 text-slate-700 dark:text-slate-300 transition-colors text-left"
           >
@@ -1187,6 +1201,9 @@ const defaultUserName = import.meta.env.PUBLIC_USER_NAME || "Usuario Demo";
       const DATA_STORAGE_KEY = "pacoforet_fit_data_records";
       const GOALS_STORAGE_KEY = "pacoforet_fit_user_goals";
       const PROFILE_STORAGE_KEY = "pacoforet_fit_user_profile";
+      const DEMO_RECORD_IDS = new Set(
+        Array.isArray(initialData) ? initialData.map(r => r.id) : []
+      );
 
       // Default Target Goals & User Profile
       let userProfile = {
@@ -1409,7 +1426,17 @@ const defaultUserName = import.meta.env.PUBLIC_USER_NAME || "Usuario Demo";
           }
 
           // Process cloud records and profile
-          const cloudRecords = data.records || [];
+          let cloudRecords = data.records || [];
+          let hadDemoInCloud = false;
+
+          if (!isDemoSession()) {
+            hadDemoInCloud = cloudRecords.some(cr => DEMO_RECORD_IDS.has(cr.id));
+            if (hadDemoInCloud) {
+              cloudRecords = cloudRecords.filter(cr => !DEMO_RECORD_IDS.has(cr.id));
+            }
+            allRecords = allRecords.filter(r => !DEMO_RECORD_IDS.has(r.id));
+          }
+
           if (data.profile) {
             userProfile = Object.assign(userProfile, data.profile);
             userGoals.targetWeight = userProfile.targetWeight;
@@ -1441,9 +1468,10 @@ const defaultUserName = import.meta.env.PUBLIC_USER_NAME || "Usuario Demo";
             }
           });
 
-          // Check if local has records missing in cloud
+          // Check if local has records missing in cloud (ignoring demo records)
           if (cloudRecords.length > 0) {
             allRecords.forEach(lr => {
+              if (!isDemoSession() && DEMO_RECORD_IDS.has(lr.id)) return;
               if (!cloudRecords.some(cr => cr.id === lr.id)) {
                 hasNewFromLocal = true;
               }
@@ -1453,17 +1481,20 @@ const defaultUserName = import.meta.env.PUBLIC_USER_NAME || "Usuario Demo";
           }
 
           allRecords = Array.from(mergedMap.values());
+          if (!isDemoSession()) {
+            allRecords = allRecords.filter(r => !DEMO_RECORD_IDS.has(r.id));
+          }
           allRecords.sort((a, b) => a.timestamp - b.timestamp);
           localStorage.setItem(DATA_STORAGE_KEY, JSON.stringify(allRecords));
 
-          if (hasNewFromCloud) {
+          if (hasNewFromCloud || hadDemoInCloud) {
             renderDashboard();
           }
 
           setSyncBadge('synced', 'Nube');
 
-          // If local has new records not yet in cloud, upload them
-          if (hasNewFromLocal) {
+          // If local has new records not yet in cloud, or cloud had demo records, upload clean records
+          if (hasNewFromLocal || hadDemoInCloud) {
             syncToCloud(true);
           }
         } catch (err) {
@@ -1520,12 +1551,21 @@ const defaultUserName = import.meta.env.PUBLIC_USER_NAME || "Usuario Demo";
         if (stored) {
           try {
             allRecords = JSON.parse(stored);
+            if (!Array.isArray(allRecords)) allRecords = [];
           } catch (e) {
-            allRecords = initialData;
+            allRecords = [];
           }
         } else {
-          allRecords = initialData;
+          allRecords = [];
         }
+
+        // Auto-sanitize: ensure real sessions never retain demo records in local storage
+        const countBefore = allRecords.length;
+        allRecords = allRecords.filter(r => !DEMO_RECORD_IDS.has(r.id));
+        if (allRecords.length !== countBefore) {
+          localStorage.setItem(DATA_STORAGE_KEY, JSON.stringify(allRecords));
+        }
+
         allRecords.sort((a, b) => a.timestamp - b.timestamp);
       }
 
@@ -2945,6 +2985,24 @@ const defaultUserName = import.meta.env.PUBLIC_USER_NAME || "Usuario Demo";
           URL.revokeObjectURL(url);
         });
 
+        document.getElementById('btn-purge-demo-data')?.addEventListener('click', () => {
+          if (isDemoSession()) {
+            alert('Estás en modo Demostración. En este modo los datos de prueba son los esperados.');
+            return;
+          }
+          const beforeCount = allRecords.length;
+          allRecords = allRecords.filter(r => !DEMO_RECORD_IDS.has(r.id));
+          const removedCount = beforeCount - allRecords.length;
+          if (removedCount > 0) {
+            saveData();
+            syncToCloud(false);
+            alert(`¡Limpieza completada con éxito!\n\nSe han eliminado ${removedCount} registros de prueba demo (15-24 de agosto) que causaban el baile en la gráfica.\nLos datos limpios se han guardado y sincronizado.`);
+          } else {
+            alert('No se detectaron registros demo mezclados. Tus datos de pesaje están limpios.');
+          }
+          document.getElementById('modal-export')?.classList.add('hidden');
+        });
+
         document.getElementById('btn-reset-data')?.addEventListener('click', () => {
           if (confirm('¿Estás seguro de que quieres restablecer todos los datos a la versión inicial? Se perderán las modificaciones personalizadas.')) {
             localStorage.removeItem(DATA_STORAGE_KEY);
@@ -3087,6 +3145,9 @@ const defaultUserName = import.meta.env.PUBLIC_USER_NAME || "Usuario Demo";
         });
 
         allRecords = Array.from(existingMap.values());
+        if (!isDemoSession()) {
+          allRecords = allRecords.filter(r => !DEMO_RECORD_IDS.has(r.id));
+        }
         saveData();
 
         showImportFeedback(`¡Éxito! Se han procesado ${newItems.length} registros (${newRecordsCount} nuevos añadidos).`, true);
