@@ -3051,6 +3051,40 @@ const defaultUserName = import.meta.env.PUBLIC_USER_NAME || "Usuario Demo";
           return;
         }
 
+        const normalizeHeader = (h) => {
+          return (h || '')
+            .toLowerCase()
+            .normalize("NFD").replace(/[\u0300-\u036f]/g, "")
+            .replace(/[^a-z0-9]/g, "");
+        };
+
+        const headers = lines[0].split(',').map(c => normalizeHeader(c.trim().replace(/^"|"$/g, '')));
+
+        const findCol = (keywords) => {
+          for (const kw of keywords) {
+            const idx = headers.findIndex(h => h === kw || h.includes(kw));
+            if (idx !== -1) return idx;
+          }
+          return -1;
+        };
+
+        const colDate = findCol(['fecha', 'date', 'timeofmeasurement']);
+        const colTime = findCol(['hora', 'time']);
+        const colWeight = findCol(['pesokg', 'peso', 'weightkg', 'weight']);
+        const colBmi = findCol(['imc', 'bmi']);
+        const colBodyFat = findCol(['porcentajedegrasacorporal', 'grasacorporal', 'bodyfat']);
+        const colFatMassKg = findCol(['masagrasacorporal', 'masagrasa', 'fatmass']);
+        const colSkeletalMuscle = findCol(['porcentajedemusculoesqueletico', 'musculoesqueletico', 'skeletalmuscle']);
+        const colFatFreeWeight = findCol(['pesocorporalsingrasa', 'fatfreeweight', 'fatfreebodyweight']);
+        const colSubcut = findCol(['grasasubcutanea', 'subcutaneousfat']);
+        const colVisceral = findCol(['grasavisceral', 'visceralfeat', 'visceralfat']);
+        const colWater = findCol(['porcentajedeaguacorporal', 'aguacorporal', 'bodywater']);
+        const colMuscleMass = findCol(['masamuscular', 'musclemass']);
+        const colBone = findCol(['masaoseakg', 'masaosea', 'porcentajeoseo', 'bonemass']);
+        const colProtein = findCol(['porcentajedeproteina', 'proteina', 'protein']);
+        const colBmr = findCol(['tasametabolicabasal', 'bmr']);
+        const colAge = findCol(['edadmetabolica', 'metabolicage']);
+
         const parseNum = (val) => {
           if (!val || val.trim() === '--' || val.trim() === '') return null;
           const num = parseFloat(val.trim().replace('%', '').replace(',', '.'));
@@ -3058,7 +3092,7 @@ const defaultUserName = import.meta.env.PUBLIC_USER_NAME || "Usuario Demo";
         };
 
         const parseDateFlexible = (dateStr, timeStr) => {
-          const parts = dateStr.trim().split(/[\/\-\.]/);
+          const parts = (dateStr || '').trim().split(/[\/\-\.]/);
           if (parts.length !== 3) return null;
           let day = parts[0];
           let month = parts[1];
@@ -3092,16 +3126,20 @@ const defaultUserName = import.meta.env.PUBLIC_USER_NAME || "Usuario Demo";
           const cols = lines[i].split(',').map(c => c.trim().replace(/^"|"$/g, ''));
           if (cols.length < 3) continue;
 
-          const dateInfo = parseDateFlexible(cols[0], cols[1]);
+          const rawDate = colDate !== -1 ? cols[colDate] : cols[0];
+          const rawTime = colTime !== -1 ? cols[colTime] : cols[1];
+          const dateInfo = parseDateFlexible(rawDate, rawTime);
           if (!dateInfo) continue;
 
-          const weight = parseNum(cols[2]);
+          const weight = colWeight !== -1 ? parseNum(cols[colWeight]) : parseNum(cols[2]);
           if (!weight) continue;
 
-          const bodyFat = parseNum(cols[4]);
-          const skeletalMuscle = parseNum(cols[5]);
-          const fatFreeWeight = parseNum(cols[6]);
-          const fatMassKg = (weight && bodyFat) ? +(weight * (bodyFat / 100)).toFixed(2) : null;
+          const bodyFat = colBodyFat !== -1 ? parseNum(cols[colBodyFat]) : null;
+          const skeletalMuscle = colSkeletalMuscle !== -1 ? parseNum(cols[colSkeletalMuscle]) : null;
+          const fatFreeWeight = colFatFreeWeight !== -1 ? parseNum(cols[colFatFreeWeight]) : null;
+          const directFatMass = colFatMassKg !== -1 ? parseNum(cols[colFatMassKg]) : null;
+
+          const fatMassKg = directFatMass ?? ((weight && bodyFat) ? +(weight * (bodyFat / 100)).toFixed(2) : null);
           const leanMassKg = (weight && fatMassKg) ? +(weight - fatMassKg).toFixed(2) : (fatFreeWeight || null);
 
           const item = {
@@ -3111,18 +3149,18 @@ const defaultUserName = import.meta.env.PUBLIC_USER_NAME || "Usuario Demo";
             iso: dateInfo.iso,
             timestamp: dateInfo.timestamp,
             weight: weight,
-            bmi: parseNum(cols[3]),
+            bmi: colBmi !== -1 ? parseNum(cols[colBmi]) : null,
             bodyFat: bodyFat,
             skeletalMuscle: skeletalMuscle,
             fatFreeWeight: fatFreeWeight,
-            subcutaneousFat: parseNum(cols[7]),
-            visceralFat: parseNum(cols[8]),
-            bodyWater: parseNum(cols[9]),
-            muscleMass: parseNum(cols[10]),
-            boneMass: parseNum(cols[11]),
-            protein: parseNum(cols[12]),
-            bmr: parseNum(cols[13]),
-            metabolicAge: parseNum(cols[14]),
+            subcutaneousFat: colSubcut !== -1 ? parseNum(cols[colSubcut]) : null,
+            visceralFat: colVisceral !== -1 ? parseNum(cols[colVisceral]) : null,
+            bodyWater: colWater !== -1 ? parseNum(cols[colWater]) : null,
+            muscleMass: colMuscleMass !== -1 ? parseNum(cols[colMuscleMass]) : null,
+            boneMass: colBone !== -1 ? parseNum(cols[colBone]) : null,
+            protein: colProtein !== -1 ? parseNum(cols[colProtein]) : null,
+            bmr: colBmr !== -1 ? parseNum(cols[colBmr]) : null,
+            metabolicAge: colAge !== -1 ? parseNum(cols[colAge]) : null,
             fatMassKg: fatMassKg,
             leanMassKg: leanMassKg,
           };
