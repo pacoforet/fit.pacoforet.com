@@ -60,10 +60,10 @@ cp .env.example .env
 The login is checked on the server (`/api/session`) against a salted PBKDF2 hash, and a signed `HttpOnly` cookie authorizes the sync API. Nothing secret is shipped to the browser. Generate your hash:
 
 ```bash
-npm run auth:hash "mi_usuario"
+npm run auth:hash
 ```
 
-The script asks for the password without echoing it. Copy the result into your `.env` (or Vercel Environment Variables, as a *Sensitive* variable):
+The script asks for your username and then the password (without echoing it). Copy the result into your `.env` (or Vercel Environment Variables, as a *Sensitive* variable):
 ```env
 FIT_PASSWORD_HASH=pbkdf2-sha256:210000:...
 ```
