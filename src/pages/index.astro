@@ -2,8 +2,6 @@
 import initialData from "../data/renpho-data.json";
 import "../styles/global.css";
 
-const publicAuthHash = import.meta.env.PUBLIC_AUTH_HASH || "22610a297f0af193879f19dc56f88a7ab2434d7bcfe8f3ad75dc96d3e2f2a994";
-const publicEnableAuth = import.meta.env.PUBLIC_ENABLE_AUTH !== "false";
 const defaultUserName = import.meta.env.PUBLIC_USER_NAME || "Usuario Demo";
 ---
 
@@ -1194,9 +1192,7 @@ const defaultUserName = import.meta.env.PUBLIC_USER_NAME || "Usuario Demo";
     </div>
 
     <!-- CLIENT JAVASCRIPT LOGIC -->
-    <script define:vars={{ initialData, publicAuthHash, publicEnableAuth, defaultUserName }}>
-      const AUTH_HASH = publicAuthHash || "22610a297f0af193879f19dc56f88a7ab2434d7bcfe8f3ad75dc96d3e2f2a994";
-      const ENABLE_AUTH = publicEnableAuth !== false;
+    <script define:vars={{ initialData, defaultUserName }}>
       const AUTH_STORAGE_KEY = "pacoforet_fit_auth_session";
       const DATA_STORAGE_KEY = "pacoforet_fit_data_records";
       const GOALS_STORAGE_KEY = "pacoforet_fit_user_goals";
@@ -1278,39 +1274,61 @@ const defaultUserName = import.meta.env.PUBLIC_USER_NAME || "Usuario Demo";
         saveProfile(userProfile.name, userProfile.height, weight, fat);
       }
 
-      async function sha256(message) {
-        const msgBuffer = new TextEncoder().encode(message);
-        const hashBuffer = await crypto.subtle.digest('SHA-256', msgBuffer);
-        const hashArray = Array.from(new Uint8Array(hashBuffer));
-        return hashArray.map(b => b.toString(16).padStart(2, '0')).join('');
+      function escapeHtml(value) {
+        return String(value ?? '').replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
       }
 
       const DEMO_SESSION_KEY = "demo_session";
+      // Marker only: the real credential is the HttpOnly cookie set by /api/session
+      const SERVER_SESSION_KEY = "server_session";
 
       function isDemoSession() {
         return localStorage.getItem(AUTH_STORAGE_KEY) === DEMO_SESSION_KEY;
       }
 
+      function hasServerSession() {
+        return localStorage.getItem(AUTH_STORAGE_KEY) === SERVER_SESSION_KEY;
+      }
+
+      let dashboardStarted = false;
+
+      function showDashboard() {
+        document.getElementById('auth-gate').classList.add('hidden');
+        document.getElementById('dashboard-app').classList.remove('hidden');
+        if (dashboardStarted) return;
+        dashboardStarted = true;
+        requestAnimationFrame(() => {
+          initDashboard();
+        });
+      }
+
+      function showAuthGate() {
+        document.getElementById('auth-gate').classList.remove('hidden');
+        document.getElementById('dashboard-app').classList.add('hidden');
+      }
+
+      // Called when the server rejects our cookie (expired, password changed...)
+      function handleSessionExpired() {
+        localStorage.removeItem(AUTH_STORAGE_KEY);
+        showAuthGate();
+      }
+
       function checkAuth() {
-        if (!ENABLE_AUTH) {
-          document.getElementById('auth-gate').classList.add('hidden');
-          document.getElementById('dashboard-app').classList.remove('hidden');
-          requestAnimationFrame(() => {
-            initDashboard();
-          });
+        if (isDemoSession() || hasServerSession()) {
+          showDashboard();
           return;
         }
-        const session = localStorage.getItem(AUTH_STORAGE_KEY);
-        if (session === AUTH_HASH || session === DEMO_SESSION_KEY) {
-          document.getElementById('auth-gate').classList.add('hidden');
-          document.getElementById('dashboard-app').classList.remove('hidden');
-          requestAnimationFrame(() => {
-            initDashboard();
-          });
-        } else {
-          document.getElementById('auth-gate').classList.remove('hidden');
-          document.getElementById('dashboard-app').classList.add('hidden');
-        }
+        showAuthGate();
+        // A valid cookie may still exist even if local storage was cleared
+        fetch('/api/session', { cache: 'no-store' })
+          .then(res => res.ok ? res.json() : null)
+          .then(data => {
+            if (data?.authenticated && !isDemoSession() && !hasServerSession()) {
+              localStorage.setItem(AUTH_STORAGE_KEY, SERVER_SESSION_KEY);
+              showDashboard();
+            }
+          })
+          .catch(() => {});
       }
 
       document.getElementById('btn-demo-access')?.addEventListener('click', () => {
@@ -1323,32 +1341,46 @@ const defaultUserName = import.meta.env.PUBLIC_USER_NAME || "Usuario Demo";
         e.preventDefault();
         const user = document.getElementById('login-user').value.trim();
         const pass = document.getElementById('login-pass').value.trim();
+        const errorEl = document.getElementById('login-error');
 
         if (user.toLowerCase() === 'demo' && pass.toLowerCase() === 'demo') {
           localStorage.setItem(AUTH_STORAGE_KEY, DEMO_SESSION_KEY);
-          document.getElementById('login-error')?.classList.add('hidden');
+          errorEl?.classList.add('hidden');
           checkAuth();
           return;
         }
 
-        const hash = await sha256(`${user}:${pass}`);
-
-        if (hash === AUTH_HASH) {
-          localStorage.setItem(AUTH_STORAGE_KEY, hash);
-          document.getElementById('login-error').classList.add('hidden');
-          document.getElementById('auth-gate').classList.add('hidden');
-          document.getElementById('dashboard-app').classList.remove('hidden');
-          requestAnimationFrame(() => {
-            initDashboard();
+        let ok = false;
+        try {
+          const res = await fetch('/api/session', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ user, pass })
           });
+          ok = res.ok;
+        } catch (err) {
+          console.error('Login error:', err);
+        }
+
+        if (ok) {
+          document.getElementById('login-pass').value = '';
+          localStorage.setItem(AUTH_STORAGE_KEY, SERVER_SESSION_KEY);
+          errorEl?.classList.add('hidden');
+          showDashboard();
         } else {
-          document.getElementById('login-error').classList.remove('hidden');
+          errorEl?.classList.remove('hidden');
         }
       });
 
-      document.getElementById('btn-logout')?.addEventListener('click', () => {
+      document.getElementById('btn-logout')?.addEventListener('click', async () => {
+        const wasServerSession = hasServerSession();
         localStorage.removeItem(AUTH_STORAGE_KEY);
-        checkAuth();
+        if (wasServerSession) {
+          try {
+            await fetch('/api/session', { method: 'DELETE' });
+          } catch (err) {}
+        }
+        location.reload();
       });
 
       document.getElementById('theme-btn')?.addEventListener('click', () => {
@@ -1399,17 +1431,17 @@ const defaultUserName = import.meta.env.PUBLIC_USER_NAME || "Usuario Demo";
           setSyncBadge('demo', 'Demo');
           return;
         }
-        const session = localStorage.getItem(AUTH_STORAGE_KEY);
-        if (!session) return;
+        if (!hasServerSession()) return;
 
         if (!silent) setSyncBadge('syncing', 'Sincronizando...');
 
         try {
-          const res = await fetch('/api/fit-sync', {
-            method: 'GET',
-            headers: { 'x-fit-auth': session }
-          });
+          const res = await fetch('/api/fit-sync', { method: 'GET', cache: 'no-store' });
 
+          if (res.status === 401) {
+            handleSessionExpired();
+            return;
+          }
           if (!res.ok) {
             if (!silent) setSyncBadge('error', 'Error sync');
             return;
@@ -1508,18 +1540,14 @@ const defaultUserName = import.meta.env.PUBLIC_USER_NAME || "Usuario Demo";
           setSyncBadge('demo', 'Demo');
           return;
         }
-        const session = localStorage.getItem(AUTH_STORAGE_KEY);
-        if (!session) return;
+        if (!hasServerSession()) return;
 
         if (!silent) setSyncBadge('syncing', 'Guardando...');
 
         try {
           const res = await fetch('/api/fit-sync', {
             method: 'POST',
-            headers: {
-              'Content-Type': 'application/json',
-              'x-fit-auth': session
-            },
+            headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({
               records: allRecords,
               goals: userGoals,
@@ -1527,6 +1555,10 @@ const defaultUserName = import.meta.env.PUBLIC_USER_NAME || "Usuario Demo";
             })
           });
 
+          if (res.status === 401) {
+            handleSessionExpired();
+            return;
+          }
           if (res.ok) {
             const data = await res.json();
             if (data.ok) {
@@ -2432,7 +2464,7 @@ const defaultUserName = import.meta.env.PUBLIC_USER_NAME || "Usuario Demo";
         tbody.innerHTML = weeks.map(w => `
           <tr class="hover:bg-slate-50/80 dark:hover:bg-slate-800/40 transition-colors">
             <td class="py-2 px-3 font-bold text-slate-900 dark:text-white text-xs">
-              Sem ${w.weekNum} <span class="text-[10px] text-slate-400 font-normal">(${w.period})</span>
+              Sem ${w.weekNum} <span class="text-[10px] text-slate-400 font-normal">(${escapeHtml(w.period)})</span>
             </td>
             <td class="py-2 px-3 text-right font-bold text-slate-900 dark:text-white text-xs">${w.endWeight.toFixed(2)}kg</td>
             <td class="py-2 px-3 text-right">
@@ -2475,13 +2507,13 @@ const defaultUserName = import.meta.env.PUBLIC_USER_NAME || "Usuario Demo";
               <div class="p-3 rounded-xl bg-slate-50 dark:bg-slate-900/60 border border-slate-200/60 dark:border-slate-800/80 flex items-center justify-between gap-2">
                 <div>
                   <div class="flex items-center gap-2">
-                    <span class="font-bold text-xs text-slate-900 dark:text-white">${r.date}</span>
-                    <span class="text-[10px] text-slate-400 font-mono">${r.time}</span>
+                    <span class="font-bold text-xs text-slate-900 dark:text-white">${escapeHtml(r.date)}</span>
+                    <span class="text-[10px] text-slate-400 font-mono">${escapeHtml(r.time)}</span>
                   </div>
                   <div class="flex items-center gap-2.5 mt-1 text-[11px]">
                     <span class="text-slate-500">Grasa: <strong class="text-amber-600 dark:text-amber-400">${r.bodyFat ? r.bodyFat.toFixed(1) + '%' : '--'}</strong></span>
                     <span class="text-slate-500">Músc: <strong class="text-teal-600 dark:text-teal-400">${r.skeletalMuscle ? r.skeletalMuscle.toFixed(1) + '%' : '--'}</strong></span>
-                    <span class="text-slate-500">Visc: <strong class="text-blue-500">${r.visceralFat ?? '--'}</strong></span>
+                    <span class="text-slate-500">Visc: <strong class="text-blue-500">${escapeHtml(r.visceralFat ?? '--')}</strong></span>
                   </div>
                 </div>
 
@@ -2490,7 +2522,7 @@ const defaultUserName = import.meta.env.PUBLIC_USER_NAME || "Usuario Demo";
                     <div class="text-sm font-black text-slate-900 dark:text-white">${r.weight.toFixed(2)} kg</div>
                     <div class="mt-0.5">${diffHtml}</div>
                   </div>
-                  <button data-delete-id="${r.id}" class="btn-delete-row p-1 text-slate-300 hover:text-red-500 dark:text-slate-600 dark:hover:text-red-400 transition-colors" title="Eliminar">
+                  <button data-delete-id="${escapeHtml(r.id)}" class="btn-delete-row p-1 text-slate-300 hover:text-red-500 dark:text-slate-600 dark:hover:text-red-400 transition-colors" title="Eliminar">
                     <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M6 18L18 6M6 6l12 12"/></svg>
                   </button>
                 </div>
@@ -2515,7 +2547,7 @@ const defaultUserName = import.meta.env.PUBLIC_USER_NAME || "Usuario Demo";
             return `
               <tr class="hover:bg-slate-50/80 dark:hover:bg-slate-800/40 transition-colors">
                 <td class="py-2 px-3 font-semibold text-slate-800 dark:text-slate-200">
-                  ${r.date} <span class="text-slate-400 text-[10px] font-normal">${r.time}</span>
+                  ${escapeHtml(r.date)} <span class="text-slate-400 text-[10px] font-normal">${escapeHtml(r.time)}</span>
                 </td>
                 <td class="py-2 px-3 text-right font-bold text-slate-900 dark:text-white">${r.weight.toFixed(2)}</td>
                 <td class="py-2 px-3 text-right">${diffHtml}</td>
@@ -2523,16 +2555,16 @@ const defaultUserName = import.meta.env.PUBLIC_USER_NAME || "Usuario Demo";
                 <td class="py-2 px-3 text-right font-medium text-amber-600 dark:text-amber-400">${r.bodyFat ? r.bodyFat.toFixed(1) + '%' : '--'}</td>
                 <td class="py-2 px-3 text-right font-medium text-teal-600 dark:text-teal-400">${r.skeletalMuscle ? r.skeletalMuscle.toFixed(1) + '%' : '--'}</td>
                 <td class="py-2 px-3 text-right text-slate-600 dark:text-slate-300 font-medium">${r.muscleMass ? r.muscleMass.toFixed(2) : '--'}</td>
-                <td class="py-2 px-3 text-right text-blue-600 dark:text-blue-400 font-semibold">${r.visceralFat ?? '--'}</td>
+                <td class="py-2 px-3 text-right text-blue-600 dark:text-blue-400 font-semibold">${escapeHtml(r.visceralFat ?? '--')}</td>
                 <td class="py-2 px-3 text-right text-pink-600 dark:text-pink-400">${r.subcutaneousFat ? r.subcutaneousFat.toFixed(1) + '%' : '--'}</td>
                 <td class="py-2 px-3 text-right text-sky-600 dark:text-sky-400">${r.bodyWater ? r.bodyWater.toFixed(1) + '%' : '--'}</td>
                 <td class="py-2 px-3 text-right text-purple-600 dark:text-purple-400">${r.protein ? r.protein.toFixed(1) + '%' : '--'}</td>
                 <td class="py-2 px-3 text-right text-red-500 font-medium">${r.fatMassKg ? r.fatMassKg.toFixed(2) : '--'}</td>
                 <td class="py-2 px-3 text-right text-emerald-600 dark:text-emerald-400 font-medium">${r.leanMassKg || r.fatFreeWeight ? (r.leanMassKg || r.fatFreeWeight).toFixed(2) : '--'}</td>
-                <td class="py-2 px-3 text-right text-slate-500">${r.bmr ?? '--'}</td>
-                <td class="py-2 px-3 text-right text-purple-500 font-bold">${r.metabolicAge ?? '--'}</td>
+                <td class="py-2 px-3 text-right text-slate-500">${escapeHtml(r.bmr ?? '--')}</td>
+                <td class="py-2 px-3 text-right text-purple-500 font-bold">${escapeHtml(r.metabolicAge ?? '--')}</td>
                 <td class="py-2 px-3 text-center">
-                  <button data-delete-id="${r.id}" class="btn-delete-row text-slate-300 hover:text-red-500 dark:text-slate-600 dark:hover:text-red-400 p-1 transition-colors" title="Eliminar registro">
+                  <button data-delete-id="${escapeHtml(r.id)}" class="btn-delete-row text-slate-300 hover:text-red-500 dark:text-slate-600 dark:hover:text-red-400 p-1 transition-colors" title="Eliminar registro">
                     <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M6 18L18 6M6 6l12 12"/></svg>
                   </button>
                 </td>

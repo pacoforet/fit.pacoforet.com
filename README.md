@@ -24,7 +24,7 @@
 - **📱 iPhone 16 Pro PWA**: Standalone installable progressive web app optimized for Dynamic Island and iOS safe areas.
 - **📸 HD Infographic Report Exporter**: In-browser canvas renderer that generates high-resolution social/personal progress summary images with native Web Share API support.
 - **📁 CSV Import & Export**: Direct integration with RENPHO Smart Scale CSV exports, manual entry form, and instant CSV / JSON full backups.
-- **🔒 Privacy First**: Optional SHA-256 gated password screen with customizable credentials.
+- **🔒 Privacy First**: Server-side login (PBKDF2 + signed HttpOnly session cookie); your data never leaves your own Gist.
 
 ---
 
@@ -55,30 +55,28 @@ Copy the template file:
 cp .env.example .env
 ```
 
-### 1. Customizing Authentication (User & Password)
+### 1. Setting Your Login (User & Password)
 
-By default, the dashboard includes a demonstration password hash. To set your own credentials:
+The login is checked on the server (`/api/session`) against a salted PBKDF2 hash, and a signed `HttpOnly` cookie authorizes the sync API. Nothing secret is shipped to the browser. Generate your hash:
 
 ```bash
-npm run auth:hash "mi_usuario" "mi_contraseña"
+npm run auth:hash "mi_usuario"
 ```
 
-Copy the generated hash into your `.env` (or Vercel Environment Variables):
+The script asks for the password without echoing it. Copy the result into your `.env` (or Vercel Environment Variables, as a *Sensitive* variable):
 ```env
-FIT_AUTH_HASH=tu_hash_sha256_generado
-PUBLIC_AUTH_HASH=tu_hash_sha256_generado
+FIT_PASSWORD_HASH=pbkdf2-sha256:210000:...
 ```
 
-> **Tip:** If you are self-hosting on a private local network and do not want a login screen at all, add:
-> ```env
-> PUBLIC_ENABLE_AUTH=false
-> ```
+If `FIT_PASSWORD_HASH` is not set, login is disabled and the API rejects every request. The **Demo mode** (user `demo`, password `demo`, or the demo button) keeps working entirely in the browser with sample data. Changing the password invalidates every open session.
+
+> **Note:** `npm run dev` only serves the frontend. To test login and sync locally, use `vercel dev`.
 
 ### 2. Cloud Sync with GitHub Gist (Multi-Device)
 
 If you want your weigh-ins to sync automatically across all your devices (iPhone, laptop, tablet) without paying for a database:
 
-1. Create a **GitHub Personal Access Token (classic)** at [GitHub Token Settings](https://github.com/settings/tokens) with the **`gist`** scope checked.
+1. Create a **fine-grained GitHub token** at [GitHub Token Settings](https://github.com/settings/personal-access-tokens) with only the **Gists: Read and write** account permission and an expiration date.
 2. Create an empty secret Gist at [gist.github.com](https://gist.github.com) (e.g. named `fit-data.json` with `{}`).
 3. Copy the Gist ID from the URL (the hexadecimal string at the end).
 4. Set the variables in your `.env` or Vercel:
@@ -109,8 +107,7 @@ You can deploy your own instance to Vercel for free in seconds:
 3. In **Project Settings -> Environment Variables**, add:
    - `FIT_GITHUB_TOKEN` (optional, for Gist sync)
    - `FIT_GIST_ID` (optional, for Gist sync)
-   - `FIT_AUTH_HASH` (optional, for custom login)
-   - `PUBLIC_AUTH_HASH` (optional, matching FIT_AUTH_HASH)
+   - `FIT_PASSWORD_HASH` (required for login and sync, generated with `npm run auth:hash`)
 4. Click **Deploy**.
 
 ---
