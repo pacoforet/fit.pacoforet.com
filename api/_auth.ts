@@ -22,7 +22,7 @@ export function isAuthConfigured(): boolean {
   return getPasswordHash().split(":").length === 4;
 }
 
-function b64urlToBytes(value: string): Uint8Array {
+function b64urlToBytes(value: string): Uint8Array<ArrayBuffer> {
   const b64 = value.replace(/-/g, "+").replace(/_/g, "/") + "===".slice((value.length + 3) % 4);
   const bin = atob(b64);
   const bytes = new Uint8Array(bin.length);

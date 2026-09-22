@@ -1,4 +1,4 @@
-import { hasValidSession, isSameOrigin, json } from "./_auth";
+import { hasValidSession, isSameOrigin, json } from "./_auth.js";
 
 export const config = {
   runtime: "edge",

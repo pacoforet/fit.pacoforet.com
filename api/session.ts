@@ -6,7 +6,7 @@ import {
   isSameOrigin,
   json,
   verifyPassword,
-} from "./_auth";
+} from "./_auth.js";
 
 export const config = {
   runtime: "edge",
