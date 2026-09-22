@@ -1,0 +1,32 @@
+---
+import Sheet from "../Sheet.astro";
+---
+
+<Sheet id="dlg-goals" title="Metas y perfil" description="La altura se usa para el IMC y el índice de masa libre de grasa (FFMI).">
+  <form id="goals-form" class="space-y-5">
+    <div class="grid gap-3 sm:grid-cols-2">
+      <div>
+        <label class="field-label" for="g-name">Nombre</label>
+        <input id="g-name" class="input" type="text" autocomplete="given-name" maxlength="60" required />
+      </div>
+      <div>
+        <label class="field-label" for="g-height">Altura (cm)</label>
+        <input id="g-height" class="input" type="number" inputmode="numeric" min="100" max="250" step="1" required />
+      </div>
+    </div>
+    <div class="grid gap-3 sm:grid-cols-2">
+      <div>
+        <label class="field-label" for="g-weight">Meta de peso (kg)</label>
+        <input id="g-weight" class="input" type="number" inputmode="decimal" min="30" max="300" step="0.1" required />
+      </div>
+      <div>
+        <label class="field-label" for="g-fat">Meta de grasa corporal (%)</label>
+        <input id="g-fat" class="input" type="number" inputmode="decimal" min="3" max="60" step="0.1" required />
+      </div>
+    </div>
+    <div class="flex flex-col-reverse gap-2 pt-1 sm:flex-row sm:justify-end">
+      <button type="button" class="btn btn-ghost" data-close>Cancelar</button>
+      <button type="submit" class="btn btn-primary">Guardar</button>
+    </div>
+  </form>
+</Sheet>

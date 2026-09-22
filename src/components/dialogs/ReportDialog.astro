@@ -1,0 +1,16 @@
+---
+import Icon from "../Icon.astro";
+import Sheet from "../Sheet.astro";
+---
+
+<Sheet id="dlg-report" title="Informe para compartir" description="Imagen de 1080 × 1350 px, lista para redes o para guardar.">
+  <div class="space-y-4">
+    <div class="overflow-hidden rounded-2xl border border-border bg-[#09090b]">
+      <canvas id="report-canvas" class="mx-auto block h-auto max-h-[52dvh] w-auto max-w-full" role="img" aria-label="Vista previa del informe"></canvas>
+    </div>
+    <div class="flex flex-col gap-2 sm:flex-row">
+      <button id="btn-report-share" type="button" class="btn btn-primary sm:flex-1"><Icon name="share" />Compartir o guardar en Fotos</button>
+      <button id="btn-report-download" type="button" class="btn btn-secondary"><Icon name="download" />Descargar PNG</button>
+    </div>
+  </div>
+</Sheet>

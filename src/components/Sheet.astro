@@ -1,0 +1,27 @@
+---
+import Icon from "./Icon.astro";
+
+interface Props {
+  id: string;
+  title: string;
+  description?: string;
+}
+
+const { id, title, description } = Astro.props;
+---
+
+<dialog id={id} class="sheet" aria-labelledby={`${id}-title`}>
+  <div class="sm:hidden mx-auto mt-2.5 h-1 w-10 rounded-full bg-border-strong" aria-hidden="true"></div>
+  <div class="sheet-header">
+    <div class="min-w-0">
+      <h2 id={`${id}-title`} class="text-lg font-semibold tracking-tight">{title}</h2>
+      {description && <p class="mt-1 text-sm text-fg-2">{description}</p>}
+    </div>
+    <button type="button" class="btn-icon -mr-2 -mt-1 shrink-0" data-close aria-label="Cerrar">
+      <Icon name="x" class="size-5" />
+    </button>
+  </div>
+  <div class="sheet-body">
+    <slot />
+  </div>
+</dialog>

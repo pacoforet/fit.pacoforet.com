@@ -116,7 +116,8 @@ You can deploy your own instance to Vercel for free in seconds:
 
 - **Framework**: [Astro 6](https://astro.build)
 - **Styling**: [Tailwind CSS v4](https://tailwindcss.com)
-- **Charts**: [Chart.js 4](https://www.chartjs.org/)
+- **Charts**: [Chart.js 4](https://www.chartjs.org/) (bundled, tree-shaken)
+- **Typography**: [Inter](https://rsms.me/inter/) (self-hosted via Fontsource)
 - **Runtime / API**: [Vercel Edge Functions](https://vercel.com/docs/functions)
 - **Persistence**: Browser `localStorage` + GitHub Gist API
 

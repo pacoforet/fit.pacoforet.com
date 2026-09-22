@@ -1,0 +1,142 @@
+---
+import Icon from "../Icon.astro";
+
+const metrics = [
+  { key: "weight", label: "Peso" },
+  { key: "bodyFat", label: "Grasa" },
+  { key: "skeletalMuscle", label: "Músculo" },
+  { key: "composition", label: "Masas" },
+];
+const ranges = [
+  { key: "7d", label: "7 d" },
+  { key: "30d", label: "30 d" },
+  { key: "90d", label: "90 d" },
+  { key: "all", label: "Todo" },
+];
+---
+
+<section id="view-resumen" data-view="resumen" aria-labelledby="resumen-title">
+  <h1 id="resumen-title" class="sr-only">Resumen</h1>
+
+  <!-- Empty state -->
+  <div id="empty-state" class="card px-6 py-14 text-center sm:py-20" hidden>
+    <span class="inline-grid size-14 place-items-center rounded-2xl bg-surface-2 text-fg-2">
+      <Icon name="fileUp" class="size-6" />
+    </span>
+    <h2 class="mt-5 text-xl font-semibold tracking-tight">Aún no hay pesajes</h2>
+    <p class="mx-auto mt-2 max-w-sm text-fg-2">Importa el CSV que exporta la app de RENPHO o añade tu primer pesaje a mano.</p>
+    <div class="mt-7 flex flex-col justify-center gap-2 sm:flex-row">
+      <button type="button" class="btn btn-primary h-11" data-open="dlg-import"><Icon name="fileUp" />Importar CSV</button>
+      <button type="button" class="btn btn-secondary h-11" data-open="dlg-entry"><Icon name="plus" />Añadir pesaje</button>
+    </div>
+  </div>
+
+  <!-- Loading skeleton -->
+  <div id="summary-skeleton" class="space-y-4 sm:space-y-6" aria-hidden="true" hidden>
+    <div class="grid gap-4 lg:grid-cols-5">
+      <div class="card p-6 lg:col-span-3"><div class="skeleton h-4 w-40"></div><div class="skeleton mt-5 h-16 w-56"></div><div class="skeleton mt-6 h-4 w-full max-w-md"></div></div>
+      <div class="card p-6 lg:col-span-2"><div class="skeleton h-4 w-28"></div><div class="skeleton mt-5 h-10 w-32"></div><div class="skeleton mt-6 h-2.5 w-full"></div></div>
+    </div>
+    <div class="grid gap-4 sm:grid-cols-3">
+      <div class="card h-32 p-5"><div class="skeleton h-4 w-24"></div><div class="skeleton mt-4 h-8 w-20"></div></div>
+      <div class="card h-32 p-5"><div class="skeleton h-4 w-24"></div><div class="skeleton mt-4 h-8 w-20"></div></div>
+      <div class="card h-32 p-5"><div class="skeleton h-4 w-24"></div><div class="skeleton mt-4 h-8 w-20"></div></div>
+    </div>
+    <div class="card h-96 p-6"><div class="skeleton h-full w-full"></div></div>
+  </div>
+
+  <div id="summary-content" class="space-y-4 sm:space-y-6" hidden>
+    <!-- Hero + goal -->
+    <div class="grid gap-4 sm:gap-6 lg:grid-cols-5">
+      <article class="card p-5 sm:p-7 lg:col-span-3" aria-labelledby="hero-label">
+        <div class="flex items-center justify-between gap-3">
+          <p id="hero-label" class="eyebrow">Peso · tendencia de 7 días</p>
+          <span id="hero-pace" class="chip"></span>
+        </div>
+        <p class="mt-3 flex items-baseline gap-2">
+          <span id="hero-weight" class="text-6xl font-semibold tracking-tighter sm:text-7xl">–</span>
+          <span class="text-2xl font-medium text-fg-2">kg</span>
+        </p>
+        <div id="hero-deltas" class="mt-4 flex flex-wrap gap-2"></div>
+        <p id="hero-insight" class="mt-5 max-w-prose text-base leading-relaxed text-fg-2"></p>
+        <p id="hero-last" class="mt-4 text-sm text-fg-3"></p>
+      </article>
+
+      <article class="card flex flex-col p-5 sm:p-7 lg:col-span-2" aria-labelledby="goal-label">
+        <div class="flex items-center justify-between">
+          <p id="goal-label" class="eyebrow">Meta de peso</p>
+          <button type="button" class="btn btn-ghost -mr-2 h-8 px-2.5" data-open="dlg-goals">Editar</button>
+        </div>
+        <p class="mt-3 flex items-baseline gap-2">
+          <span id="goal-target" class="text-4xl font-semibold tracking-tight">–</span>
+          <span class="text-lg text-fg-2">kg</span>
+        </p>
+        <div class="mt-5">
+          <div id="goal-bar-wrap" class="h-2.5 overflow-hidden rounded-full bg-surface-2" role="progressbar" aria-valuemin="0" aria-valuemax="100" aria-label="Progreso hacia la meta de peso">
+            <div id="goal-bar" class="h-full w-0 rounded-full bg-accent transition-[width] duration-700 ease-out"></div>
+          </div>
+          <div class="mt-2 flex justify-between text-sm text-fg-2">
+            <span id="goal-start"></span>
+            <span id="goal-pct" class="font-medium text-fg"></span>
+          </div>
+        </div>
+        <dl class="mt-auto grid grid-cols-2 gap-4 pt-6">
+          <div><dt class="text-sm text-fg-2">Faltan</dt><dd id="goal-remaining" class="mt-0.5 text-lg font-semibold"></dd></div>
+          <div><dt class="text-sm text-fg-2">Llegada estimada</dt><dd id="goal-eta" class="mt-0.5 text-lg font-semibold"></dd></div>
+        </dl>
+        <div class="mt-5 flex items-center justify-between border-t border-border pt-4 text-sm">
+          <span class="text-fg-2">Meta de grasa corporal</span>
+          <span id="goal-fat" class="font-medium"></span>
+        </div>
+      </article>
+    </div>
+
+    <!-- Key body metrics -->
+    <div id="kpis" class="grid gap-4 sm:grid-cols-3 sm:gap-6"></div>
+
+    <!-- Main chart -->
+    <article class="card p-4 sm:p-6" aria-labelledby="chart-title">
+      <div class="flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
+        <div id="metric-switch" class="segmented grid! grid-cols-4 sm:inline-flex! sm:self-start" role="group" aria-label="Métrica del gráfico">
+          {metrics.map((m) => <button type="button" data-metric={m.key} aria-pressed="false">{m.label}</button>)}
+        </div>
+        <div id="range-switch" class="segmented grid! grid-cols-4 sm:inline-flex! sm:self-start" role="group" aria-label="Periodo del gráfico">
+          {ranges.map((r) => <button type="button" data-range={r.key} aria-pressed="false">{r.label}</button>)}
+        </div>
+      </div>
+      <div class="mt-5 flex flex-wrap items-baseline justify-between gap-x-4 gap-y-1">
+        <h2 id="chart-title" class="text-base font-semibold"></h2>
+        <p id="chart-caption" class="text-sm text-fg-2"></p>
+      </div>
+      <div class="relative mt-3 h-64 sm:h-80">
+        <canvas id="main-chart" role="img" aria-label="Gráfico de evolución"></canvas>
+      </div>
+      <div id="chart-legend" class="mt-4 flex flex-wrap gap-x-5 gap-y-2 text-sm text-fg-2"></div>
+    </article>
+
+    <!-- Recomposition + milestones -->
+    <div class="grid gap-4 sm:gap-6 lg:grid-cols-2">
+      <article id="recomp-card" class="card p-5 sm:p-6" aria-labelledby="recomp-title">
+        <div class="flex flex-col gap-2 sm:flex-row sm:items-start sm:justify-between sm:gap-3">
+          <div>
+            <h2 id="recomp-title" class="text-base font-semibold">Qué has perdido</h2>
+            <p id="recomp-sub" class="mt-0.5 text-sm text-fg-2"></p>
+          </div>
+          <span id="recomp-quality" class="chip self-start" hidden></span>
+        </div>
+        <div id="recomp-split" class="mt-5">
+          <div id="recomp-bar" class="flex h-3 gap-0.5 overflow-hidden rounded-full bg-surface-2"></div>
+          <div id="recomp-legend" class="mt-3 flex flex-wrap justify-between gap-2 text-sm"></div>
+        </div>
+        <dl id="recomp-list" class="mt-4 divide-y divide-border"></dl>
+        <p id="recomp-kcal" class="mt-4 flex items-center gap-2 text-sm text-fg-2"></p>
+      </article>
+
+      <article class="card p-5 sm:p-6" aria-labelledby="milestones-title">
+        <h2 id="milestones-title" class="text-base font-semibold">Hitos</h2>
+        <p class="mt-0.5 text-sm text-fg-2">Tu camino hasta la meta</p>
+        <ol id="milestones" class="mt-5"></ol>
+      </article>
+    </div>
+  </div>
+</section>

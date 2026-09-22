@@ -1,0 +1,60 @@
+---
+import Icon from "./Icon.astro";
+import { ICONS } from "../lib/icons";
+
+const views = [
+  { key: "resumen", label: "Resumen" },
+  { key: "tendencias", label: "Tendencias" },
+  { key: "historial", label: "Historial" },
+];
+---
+
+<header class="sticky top-0 z-40 border-b border-border bg-bg/85 backdrop-blur-xl safe-top pb-0">
+  <div class="mx-auto flex h-16 max-w-6xl items-center gap-3 px-4 sm:px-6">
+    <a href="#resumen" class="flex min-w-0 items-center gap-2.5 rounded-xl" aria-label="Ir al resumen">
+      <span class="grid size-9 shrink-0 place-items-center rounded-xl bg-fg text-bg">
+        <Icon name="zap" class="size-4" />
+      </span>
+      <span class="min-w-0 leading-tight">
+        <span class="block text-sm font-semibold">Fit</span>
+        <span id="header-name" class="block truncate text-xs text-fg-2"></span>
+      </span>
+    </a>
+
+    <nav class="ml-4 hidden md:block" aria-label="Secciones">
+      <div class="segmented">
+        {views.map((v) => <button type="button" data-view-link={v.key}>{v.label}</button>)}
+      </div>
+    </nav>
+
+    <div class="ml-auto flex items-center gap-1 sm:gap-2">
+      <button id="sync-btn" type="button" class="btn btn-ghost h-9 gap-2 px-2.5 text-sm">
+        <span id="sync-dot" class="size-2 rounded-full bg-fg-3" aria-hidden="true"></span>
+        <span id="sync-label" class="hidden sm:inline"></span>
+      </button>
+
+      <button type="button" class="btn btn-primary hidden sm:inline-flex" data-open="dlg-entry">
+        <Icon name="plus" />
+        Añadir pesaje
+      </button>
+
+      <div class="relative">
+        <button type="button" class="btn-icon" data-menu="main-menu" aria-haspopup="menu" aria-expanded="false" aria-label="Más opciones">
+          <Icon name="more" class="size-5" />
+        </button>
+        <div id="main-menu" class="menu" role="menu" aria-label="Más opciones" hidden>
+          <button type="button" class="menu-item" role="menuitem" data-open="dlg-import"><Icon name="fileUp" />Importar CSV de RENPHO</button>
+          <button type="button" class="menu-item" role="menuitem" id="menu-report"><Icon name="image" />Informe para compartir</button>
+          <button type="button" class="menu-item" role="menuitem" data-open="dlg-goals"><Icon name="target" />Metas y perfil</button>
+          <button type="button" class="menu-item" role="menuitem" data-open="dlg-data"><Icon name="database" />Datos y copia de seguridad</button>
+          <div class="menu-separator" role="separator"></div>
+          <button type="button" class="menu-item" role="menuitem" id="menu-theme">
+            <span class="contents dark:hidden"><svg class="size-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" set:html={ICONS.moon} />Tema oscuro</span>
+            <span class="hidden dark:contents"><svg class="size-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" set:html={ICONS.sun} />Tema claro</span>
+          </button>
+          <button type="button" class="menu-item" role="menuitem" id="menu-logout"><Icon name="logOut" />Cerrar sesión</button>
+        </div>
+      </div>
+    </div>
+  </div>
+</header>

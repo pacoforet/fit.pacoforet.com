@@ -1,0 +1,38 @@
+---
+import Icon from "./Icon.astro";
+---
+
+<div id="auth-gate" class="min-h-dvh flex items-center justify-center px-4 py-10 safe-top safe-bottom">
+  <div class="w-full max-w-sm">
+    <div class="text-center">
+      <span class="inline-grid place-items-center size-12 rounded-2xl bg-fg text-bg">
+        <Icon name="zap" class="size-6" />
+      </span>
+      <h1 class="mt-5 text-2xl font-semibold tracking-tight">Fit Dashboard</h1>
+      <p class="mt-1.5 text-fg-2">Tu evolución y composición corporal</p>
+    </div>
+
+    <div class="card mt-8 p-6 sm:p-7">
+      <form id="login-form" class="space-y-4" novalidate>
+        <div>
+          <label class="field-label" for="login-user">Usuario</label>
+          <input id="login-user" name="username" class="input" type="text" autocomplete="username" autocapitalize="none" spellcheck="false" required />
+        </div>
+        <div>
+          <label class="field-label" for="login-pass">Contraseña</label>
+          <input id="login-pass" name="password" class="input" type="password" autocomplete="current-password" required />
+        </div>
+        <p id="login-error" class="text-sm text-negative" role="alert" hidden>El usuario o la contraseña no son correctos.</p>
+        <button id="login-submit" type="submit" class="btn btn-primary w-full h-11">Entrar</button>
+      </form>
+
+      <div class="my-5 flex items-center gap-3 text-sm text-fg-3" aria-hidden="true">
+        <span class="h-px flex-1 bg-border"></span>o<span class="h-px flex-1 bg-border"></span>
+      </div>
+
+      <button id="btn-demo" type="button" class="btn btn-secondary w-full h-11">Ver la demo con datos de ejemplo</button>
+    </div>
+
+    <p class="mt-6 text-center text-sm text-fg-3">Tus pesajes se guardan en tu propio Gist privado de GitHub.</p>
+  </div>
+</div>

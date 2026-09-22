@@ -1,0 +1,57 @@
+---
+import Sheet from "../Sheet.astro";
+
+const optional = [
+  { id: "m-fat", label: "Grasa corporal", unit: "%", step: "0.1", placeholder: "21,2" },
+  { id: "m-muscle", label: "Músculo esquelético", unit: "%", step: "0.1", placeholder: "50,8" },
+  { id: "m-visceral", label: "Grasa visceral", unit: "nivel", step: "1", placeholder: "6" },
+  { id: "m-water", label: "Agua corporal", unit: "%", step: "0.1", placeholder: "56,9" },
+  { id: "m-age", label: "Edad metabólica", unit: "años", step: "1", placeholder: "37" },
+];
+---
+
+<Sheet id="dlg-entry" title="Añadir pesaje" description="Solo el peso es obligatorio.">
+  <form id="entry-form" class="space-y-5">
+    <div>
+      <label class="field-label" for="m-weight">Peso</label>
+      <div class="relative">
+        <input id="m-weight" class="input h-14 pr-12 text-2xl! font-semibold" type="number" inputmode="decimal" step="0.05" min="20" max="400" placeholder="79,20" required />
+        <span class="pointer-events-none absolute inset-y-0 right-4 flex items-center text-fg-2">kg</span>
+      </div>
+    </div>
+
+    <div class="grid grid-cols-2 gap-3">
+      <div>
+        <label class="field-label" for="m-date">Fecha</label>
+        <input id="m-date" class="input" type="date" required />
+      </div>
+      <div>
+        <label class="field-label" for="m-time">Hora</label>
+        <input id="m-time" class="input" type="time" required />
+      </div>
+    </div>
+
+    <details class="group rounded-2xl border border-border">
+      <summary class="flex h-12 cursor-pointer list-none items-center justify-between px-4 text-sm font-medium">
+        Composición corporal <span class="text-fg-3 group-open:hidden">Opcional</span>
+      </summary>
+      <div class="grid grid-cols-2 gap-3 px-4 pb-4">
+        {
+          optional.map((f) => (
+            <div>
+              <label class="field-label" for={f.id}>
+                {f.label} <span class="text-fg-3">({f.unit})</span>
+              </label>
+              <input id={f.id} class="input" type="number" inputmode="decimal" step={f.step} placeholder={f.placeholder} />
+            </div>
+          ))
+        }
+      </div>
+    </details>
+
+    <div class="flex flex-col-reverse gap-2 pt-1 sm:flex-row sm:justify-end">
+      <button type="button" class="btn btn-ghost" data-close>Cancelar</button>
+      <button type="submit" class="btn btn-primary">Guardar pesaje</button>
+    </div>
+  </form>
+</Sheet>

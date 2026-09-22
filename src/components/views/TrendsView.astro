@@ -1,0 +1,48 @@
+---
+---
+
+<section id="view-tendencias" data-view="tendencias" class="space-y-4 sm:space-y-6" aria-labelledby="tendencias-title" hidden>
+  <div>
+    <h1 id="tendencias-title" class="text-2xl font-semibold tracking-tight">Tendencias</h1>
+    <p class="mt-1 text-fg-2">Cómo cambia tu cuerpo semana a semana.</p>
+  </div>
+
+  <article class="card p-4 sm:p-6" aria-labelledby="weekly-title">
+    <div class="flex items-start justify-between gap-3">
+      <div>
+        <h2 id="weekly-title" class="text-base font-semibold">Cambio semanal</h2>
+        <p class="mt-0.5 text-sm text-fg-2">Media de cada semana frente a la anterior</p>
+      </div>
+      <span id="weeks-count" class="chip tone-neutral"></span>
+    </div>
+    <div id="weekly-chart-wrap" class="relative mt-5 h-56">
+      <canvas id="weekly-chart" role="img" aria-label="Cambio de peso medio por semana"></canvas>
+    </div>
+    <p id="weekly-empty" class="mt-5 rounded-xl bg-surface-2 p-4 text-sm text-fg-2" hidden>
+      Cuando tengas registros de dos semanas verás aquí cuánto cambia tu media semana a semana.
+    </p>
+    <div class="-mx-4 mt-6 overflow-x-auto sm:mx-0">
+      <table class="w-full min-w-[480px] text-sm">
+        <thead>
+          <tr class="border-b border-border text-left text-fg-2">
+            <th scope="col" class="px-4 py-2.5 font-medium sm:pl-0">Semana</th>
+            <th scope="col" class="px-4 py-2.5 font-medium">Fechas</th>
+            <th scope="col" class="px-4 py-2.5 text-right font-medium">Peso medio</th>
+            <th scope="col" class="px-4 py-2.5 text-right font-medium">Cambio</th>
+            <th scope="col" class="px-4 py-2.5 text-right font-medium">Grasa</th>
+            <th scope="col" class="px-4 py-2.5 text-right font-medium sm:pr-0">Músculo</th>
+          </tr>
+        </thead>
+        <tbody id="weekly-body" class="divide-y divide-border"></tbody>
+      </table>
+    </div>
+  </article>
+
+  <section aria-labelledby="all-metrics-title">
+    <div class="mb-3 flex flex-wrap items-baseline justify-between gap-2">
+      <h2 id="all-metrics-title" class="text-base font-semibold">Todas las métricas</h2>
+      <p class="text-sm text-fg-2">Valor actual y cambio desde el primer pesaje</p>
+    </div>
+    <div id="all-metrics" class="grid grid-cols-2 gap-3 sm:gap-4 lg:grid-cols-4"></div>
+  </section>
+</section>

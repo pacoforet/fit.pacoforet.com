@@ -1,0 +1,37 @@
+---
+import Icon from "./Icon.astro";
+import type { IconName } from "../lib/icons";
+
+const views: { key: string; label: string; icon: IconName }[] = [
+  { key: "resumen", label: "Resumen", icon: "dashboard" },
+  { key: "tendencias", label: "Tendencias", icon: "chart" },
+  { key: "historial", label: "Historial", icon: "list" },
+];
+---
+
+<button
+  type="button"
+  class="fixed right-4 z-40 grid size-14 place-items-center rounded-2xl bg-fg text-bg shadow-[var(--shadow-lg)] transition-transform active:scale-95 md:hidden"
+  style="bottom: calc(max(0.75rem, env(safe-area-inset-bottom)) + 4.75rem)"
+  data-open="dlg-entry"
+  aria-label="Añadir pesaje"
+>
+  <Icon name="plus" class="size-6" />
+</button>
+
+<nav class="fixed inset-x-0 bottom-0 z-40 border-t border-border bg-surface/90 backdrop-blur-xl safe-bottom md:hidden" aria-label="Secciones">
+  <div class="mx-auto grid h-16 max-w-md grid-cols-3">
+    {
+      views.map((v) => (
+        <button
+          type="button"
+          data-view-link={v.key}
+          class="flex flex-col items-center justify-center gap-1 text-xs font-medium text-fg-3 aria-[current=page]:text-fg transition-colors"
+        >
+          <Icon name={v.icon} class="size-5" />
+          {v.label}
+        </button>
+      ))
+    }
+  </div>
+</nav>

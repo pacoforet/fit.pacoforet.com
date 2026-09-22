@@ -1,0 +1,57 @@
+---
+import Icon from "../Icon.astro";
+import Sheet from "../Sheet.astro";
+import type { IconName } from "../../lib/icons";
+
+const exports: { id: string; icon: IconName; title: string; body: string }[] = [
+  { id: "btn-export-csv", icon: "download", title: "Descargar CSV", body: "Mismo formato que RENPHO, para hojas de cálculo" },
+  { id: "btn-export-json", icon: "download", title: "Descargar copia completa (JSON)", body: "Todos los campos, para restaurar o migrar" },
+];
+---
+
+<Sheet id="dlg-data" title="Datos y copia de seguridad">
+  <div class="space-y-6">
+    <div class="overflow-hidden rounded-2xl border border-border divide-y divide-border">
+      {
+        exports.map((e) => (
+          <button id={e.id} type="button" class="flex w-full cursor-pointer items-center gap-4 px-4 py-3.5 text-left hover:bg-surface-2">
+            <span class="grid size-9 shrink-0 place-items-center rounded-xl bg-surface-2 text-fg-2">
+              <Icon name={e.icon} />
+            </span>
+            <span class="min-w-0">
+              <span class="block text-sm font-medium">{e.title}</span>
+              <span class="block text-sm text-fg-2">{e.body}</span>
+            </span>
+          </button>
+        ))
+      }
+    </div>
+
+    <div>
+      <h3 class="mb-2 text-sm font-medium text-fg-2">Zona de riesgo</h3>
+      <div class="overflow-hidden rounded-2xl border border-border divide-y divide-border">
+        <button id="btn-purge-demo" type="button" class="flex w-full cursor-pointer items-center gap-4 px-4 py-3.5 text-left hover:bg-surface-2">
+          <span class="grid size-9 shrink-0 place-items-center rounded-xl bg-warning-soft text-warning"><Icon name="alert" /></span>
+          <span class="min-w-0">
+            <span class="block text-sm font-medium">Quitar pesajes de ejemplo</span>
+            <span class="block text-sm text-fg-2">Elimina los 10 registros de la demo si se mezclaron con los tuyos</span>
+          </span>
+        </button>
+        <button id="btn-reset-demo" type="button" class="flex w-full cursor-pointer items-center gap-4 px-4 py-3.5 text-left hover:bg-surface-2">
+          <span class="grid size-9 shrink-0 place-items-center rounded-xl bg-surface-2 text-fg-2"><Icon name="reset" /></span>
+          <span class="min-w-0">
+            <span class="block text-sm font-medium">Restablecer los datos de ejemplo</span>
+            <span class="block text-sm text-fg-2">Sustituye tus registros y metas por los de la demo</span>
+          </span>
+        </button>
+        <button id="btn-clear-all" type="button" class="flex w-full cursor-pointer items-center gap-4 px-4 py-3.5 text-left hover:bg-negative-soft">
+          <span class="grid size-9 shrink-0 place-items-center rounded-xl bg-negative-soft text-negative"><Icon name="trash" /></span>
+          <span class="min-w-0">
+            <span class="block text-sm font-medium text-negative">Borrar todos los pesajes</span>
+            <span class="block text-sm text-fg-2">Empieza de cero para importar tu propio CSV</span>
+          </span>
+        </button>
+      </div>
+    </div>
+  </div>
+</Sheet>
