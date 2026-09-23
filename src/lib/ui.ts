@@ -139,14 +139,40 @@ export function isDark(): boolean {
   return document.documentElement.classList.contains("dark");
 }
 
-export function setTheme(dark: boolean): void {
+/**
+ * Points the status bar color at the active theme. Some iOS versions don't react when an existing
+ * theme-color tag changes in a home-screen app, so the tag is replaced rather than edited.
+ */
+function syncThemeColor(dark: boolean): void {
+  document.querySelectorAll('meta[name="theme-color"]').forEach((m) => m.remove());
+  const meta = document.createElement("meta");
+  meta.name = "theme-color";
+  meta.content = dark ? "#09090b" : "#f7f7f8";
+  document.head.append(meta);
+}
+
+/** Applies a theme without saving it as the user's choice. */
+export function applyTheme(dark: boolean): void {
   document.documentElement.classList.toggle("dark", dark);
+  syncThemeColor(dark);
+}
+
+export function setTheme(dark: boolean): void {
+  applyTheme(dark);
   try {
     localStorage.theme = dark ? "dark" : "light";
   } catch {
     // ignore
   }
-  document.querySelector('meta[name="theme-color"]')?.setAttribute("content", dark ? "#09090b" : "#f7f7f8");
+}
+
+/** True when the user has not picked a theme in the app, so it follows the system. */
+export function followsSystemTheme(): boolean {
+  try {
+    return !("theme" in localStorage);
+  } catch {
+    return true;
+  }
 }
 
 export function cssVar(name: string): string {

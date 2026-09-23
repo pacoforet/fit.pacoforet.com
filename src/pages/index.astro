@@ -29,7 +29,8 @@ import TrendsView from "../components/views/TrendsView.astro";
     <meta name="mobile-web-app-capable" content="yes" />
     <meta name="apple-mobile-web-app-status-bar-style" content="default" />
     <meta name="apple-mobile-web-app-title" content="Fit" />
-    <meta name="theme-color" content="#f7f7f8" />
+    <meta name="theme-color" content="#f7f7f8" media="(prefers-color-scheme: light)" />
+    <meta name="theme-color" content="#09090b" media="(prefers-color-scheme: dark)" />
 
     <!-- Runs before paint: theme and session markers avoid a flash of the wrong screen -->
     <script is:inline>
@@ -41,7 +42,14 @@ import TrendsView from "../components/views/TrendsView.astro";
           if (localStorage.getItem("pacoforet_fit_auth_session")) d.setAttribute("data-session", "");
         } catch (e) {}
         d.classList.toggle("dark", dark);
-        document.querySelector('meta[name="theme-color"]').setAttribute("content", dark ? "#09090b" : "#f7f7f8");
+        // Same as syncThemeColor() in src/lib/ui.ts: the in-app choice may differ from the system one
+        document.querySelectorAll('meta[name="theme-color"]').forEach(function (m) {
+          m.remove();
+        });
+        var meta = document.createElement("meta");
+        meta.name = "theme-color";
+        meta.content = dark ? "#09090b" : "#f7f7f8";
+        document.head.appendChild(meta);
       })();
     </script>
     <style is:global>

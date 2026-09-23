@@ -24,7 +24,7 @@ import {
 } from "../lib/store";
 import { pushToCloud, setSessionExpiredHandler, syncFromCloud } from "../lib/sync";
 import type { ChartMetric, FitRecord, RangeKey, ViewKey } from "../lib/types";
-import { $, closeDialog, confirmAction, isDark, openDialog, setTheme, setupDialogs, setupMenus, toast } from "../lib/ui";
+import { $, applyTheme, closeDialog, confirmAction, followsSystemTheme, isDark, openDialog, setTheme, setupDialogs, setupMenus, toast } from "../lib/ui";
 import { renderChrome, renderView } from "./render/chrome";
 import { renderHistory, setupHistory } from "./render/history";
 import { renderChart, renderSummary } from "./render/summary";
@@ -185,6 +185,13 @@ $("range-switch")?.addEventListener("click", (e) => {
 
 $("menu-theme")?.addEventListener("click", () => {
   setTheme(!isDark());
+  if (started) renderActive();
+});
+
+// Without an in-app choice, follow the system appearance while the app is open
+matchMedia("(prefers-color-scheme: dark)").addEventListener("change", (e) => {
+  if (!followsSystemTheme() || e.matches === isDark()) return;
+  applyTheme(e.matches);
   if (started) renderActive();
 });
 

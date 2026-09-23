@@ -23,6 +23,28 @@ Chart.register(LineController, LineElement, PointElement, LinearScale, CategoryS
 
 const instances = new Map<string, Chart>();
 
+function release(key: string): void {
+  instances.get(key)?.destroy();
+  instances.delete(key);
+}
+
+/**
+ * Replaces the chart stored under `key` with a new one drawn on a fresh copy of `canvas`.
+ * WebKit (notably iOS home-screen apps) can leave a canvas blank when a chart is destroyed and
+ * recreated on the same element, so each chart gets its own canvas. Charts are also drawn
+ * without animation (see baseOptions): the first frame is then painted synchronously instead of
+ * waiting for requestAnimationFrame, which iOS may delay or drop.
+ */
+function mount(key: string, canvas: HTMLCanvasElement, create: (canvas: HTMLCanvasElement) => Chart): void {
+  release(key);
+  const fresh = canvas.cloneNode(false) as HTMLCanvasElement;
+  canvas.replaceWith(fresh);
+  // Free the old backing store now: iOS caps the total memory used by canvases
+  canvas.width = 0;
+  canvas.height = 0;
+  instances.set(key, create(fresh));
+}
+
 function palette() {
   return {
     fg: cssVar("--fg"),
@@ -106,7 +128,7 @@ function baseOptions(p: ReturnType<typeof palette>) {
   return {
     responsive: true,
     maintainAspectRatio: false,
-    animation: { duration: 400 },
+    animation: false as const,
     interaction: { mode: "nearest" as const, axis: "x" as const, intersect: false },
     plugins: {
       legend: { display: false },
@@ -158,7 +180,7 @@ export function renderMainChart(
   metric: ChartMetric,
   profile: Profile
 ): LegendItem[] {
-  instances.get("main")?.destroy();
+  release("main");
   if (!visible.length) return [];
   const p = palette();
   const offset = allRecords.length - visible.length;
@@ -190,9 +212,8 @@ export function renderMainChart(
       { label: "Masa magra", data: lean, borderColor: p.s3, backgroundColor: withAlpha(p.s3, 0.18), fill: "origin", borderWidth: 2, pointRadius: 0, tension: 0.3, stack: "c" },
       { label: "Masa grasa", data: fat, borderColor: p.s2, backgroundColor: withAlpha(p.s2, 0.22), fill: "-1", borderWidth: 2, pointRadius: 0, tension: 0.3, stack: "c" },
     ];
-    instances.set(
-      "main",
-      new Chart(canvas, {
+    mount("main", canvas, (c) =>
+      new Chart(c, {
         type: "line",
         data: { datasets },
         plugins: [crosshair],
@@ -306,9 +327,8 @@ export function renderMainChart(
   }
 
   const unit = def.unit;
-  instances.set(
-    "main",
-    new Chart(canvas, {
+  mount("main", canvas, (c) =>
+    new Chart(c, {
       type: "line",
       data: { datasets },
       plugins: offScale ? [crosshair] : [crosshair, goalLabelPlugin(goal, unit, 1)],
@@ -362,14 +382,13 @@ export function renderMainChart(
 /* ------------------------------- Weekly chart -------------------------------- */
 
 export function renderWeeklyChart(canvas: HTMLCanvasElement, weeks: WeekRow[], goalDirection: number): void {
-  instances.get("weekly")?.destroy();
+  release("weekly");
   const rows = weeks.filter((w) => isNum(w.change));
   if (!rows.length) return;
   const p = palette();
   const opts = baseOptions(p);
-  instances.set(
-    "weekly",
-    new Chart(canvas, {
+  mount("weekly", canvas, (c) =>
+    new Chart(c, {
       type: "bar",
       data: {
         labels: rows.map((w) => `S${w.index}`),

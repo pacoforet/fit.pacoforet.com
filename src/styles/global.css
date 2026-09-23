@@ -104,6 +104,8 @@
 /* ------------------------------------------------------------------ */
 @layer base {
   html {
+    /* Painted behind the status bar / notch on iOS; follows the theme with the rest of the page */
+    background-color: var(--bg);
     -webkit-text-size-adjust: 100%;
     -webkit-tap-highlight-color: transparent;
   }
