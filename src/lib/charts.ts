@@ -42,7 +42,17 @@ function mount(key: string, canvas: HTMLCanvasElement, create: (canvas: HTMLCanv
   // Free the old backing store now: iOS caps the total memory used by canvases
   canvas.width = 0;
   canvas.height = 0;
-  instances.set(key, create(fresh));
+  const chart = create(fresh);
+  instances.set(key, chart);
+  // WebKit may not paint a canvas drawn in the same task its view stopped being hidden (switching
+  // tabs), so draw it again once the new layout has been painted.
+  requestAnimationFrame(() =>
+    requestAnimationFrame(() => {
+      if (instances.get(key) !== chart) return;
+      chart.resize();
+      chart.render();
+    })
+  );
 }
 
 function palette() {

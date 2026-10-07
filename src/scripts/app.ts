@@ -208,6 +208,14 @@ const autoSync = () => {
 };
 document.addEventListener("visibilitychange", autoSync);
 window.addEventListener("focus", autoSync);
+
+// iOS can discard canvas contents while the app is in the background; redraw the charts on return
+const redrawOnReturn = () => {
+  if (started && document.visibilityState === "visible" && state.view !== "historial") renderActive();
+};
+document.addEventListener("visibilitychange", redrawOnReturn);
+window.addEventListener("pageshow", (e) => e.persisted && redrawOnReturn());
+
 // Keeps "Sincronizado hace X min" fresh
 setInterval(() => started && renderChrome(), 60_000);
 
