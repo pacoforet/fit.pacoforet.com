@@ -1,6 +1,6 @@
 // Entry point: authentication, routing between views and all user actions.
 import { destroyCharts } from "../lib/charts";
-import { downloadBlob, parseRenphoCsv, toCsv, today } from "../lib/csv";
+import { downloadBlob, parseJsonBackup, parseRenphoCsv, toCsv, today } from "../lib/csv";
 import { fmt, fmtDate } from "../lib/format";
 import { drawReport, reportFileName } from "../lib/report";
 import {
@@ -9,11 +9,13 @@ import {
   DEMO_SESSION,
   KEYS,
   SERVER_SESSION,
+  clearDeleted,
   commitRecords,
   displayName,
   isDemo,
   loadProfile,
   loadRecords,
+  markDeleted,
   resetLocalData,
   saveProfile,
   savePrefs,
@@ -267,6 +269,7 @@ $("entry-form")?.addEventListener("submit", (e) => {
     fatFreeWeight: fatMassKg ? +(weight - fatMassKg).toFixed(2) : null,
   };
 
+  clearDeleted([record.id]);
   commitRecords([...state.records.filter((r) => r.id !== record.id), record]);
   closeDialog("dlg-entry");
   $<HTMLFormElement>("entry-form")!.reset();
@@ -275,9 +278,11 @@ $("entry-form")?.addEventListener("submit", (e) => {
 
 /* ---------------------------------- Import ----------------------------------- */
 
-function importCsv(text: string): void {
+function importData(text: string, filename = ""): void {
   const feedback = $("import-feedback")!;
-  const { items, error } = parseRenphoCsv(text);
+  const trimmed = text.trim();
+  const isJson = filename.toLowerCase().endsWith(".json") || trimmed.startsWith("[") || trimmed.startsWith("{");
+  const { items, error } = isJson ? parseJsonBackup(trimmed) : parseRenphoCsv(text);
   feedback.hidden = false;
   if (error) {
     feedback.className = "rounded-xl p-3 text-sm tone-negative";
@@ -292,6 +297,7 @@ function importCsv(text: string): void {
   });
   let merged = [...map.values()];
   if (!isDemo()) merged = merged.filter((r) => !DEMO_IDS.has(r.id));
+  clearDeleted(items.map((it) => it.id));
   commitRecords(merged);
 
   feedback.className = "rounded-xl p-3 text-sm tone-positive";
@@ -307,7 +313,7 @@ function importCsv(text: string): void {
 
 function readFile(file: File): void {
   const reader = new FileReader();
-  reader.onload = () => importCsv(String(reader.result ?? ""));
+  reader.onload = () => importData(String(reader.result ?? ""), file.name);
   reader.readAsText(file);
 }
 
@@ -329,7 +335,7 @@ $<HTMLInputElement>("file-input")?.addEventListener("change", (e) => {
 });
 $("btn-import-text")?.addEventListener("click", () => {
   const text = $<HTMLTextAreaElement>("csv-text")!.value;
-  if (text.trim()) importCsv(text);
+  if (text.trim()) importData(text);
 });
 
 /* ------------------------------ Goals & profile ------------------------------ */
@@ -366,6 +372,11 @@ $("btn-export-csv")?.addEventListener("click", () => {
 });
 $("btn-export-json")?.addEventListener("click", () => {
   downloadBlob(new Blob([JSON.stringify(state.records, null, 2)], { type: "application/json" }), `fit-copia-${today()}.json`);
+});
+$("btn-restore-json")?.addEventListener("click", () => {
+  closeDialog("dlg-data");
+  openDialog("dlg-import");
+  $<HTMLInputElement>("file-input")?.click();
 });
 
 document.querySelectorAll('[data-open="dlg-data"]').forEach((btn) =>
@@ -412,8 +423,19 @@ $("btn-clear-all")?.addEventListener("click", async () => {
   });
   if (!ok) return;
   const backup = state.records;
+  markDeleted(backup.map((r) => r.id));
   commitRecords([]);
-  toast("Todos los pesajes borrados", { label: "Deshacer", run: () => commitRecords(backup) }, 8000);
+  toast(
+    "Todos los pesajes borrados",
+    {
+      label: "Deshacer",
+      run: () => {
+        clearDeleted(backup.map((r) => r.id));
+        commitRecords(backup);
+      },
+    },
+    8000
+  );
 });
 
 /* ---------------------------------- Delete ----------------------------------- */
@@ -421,10 +443,14 @@ $("btn-clear-all")?.addEventListener("click", async () => {
 setupHistory((id) => {
   const record = state.records.find((r) => r.id === id);
   if (!record) return;
+  markDeleted([id]);
   commitRecords(state.records.filter((r) => r.id !== id));
   toast(`Pesaje del ${fmtDate(record.timestamp, { day: "numeric", month: "long" })} eliminado`, {
     label: "Deshacer",
-    run: () => commitRecords([...state.records, record]),
+    run: () => {
+      clearDeleted([id]);
+      commitRecords([...state.records, record]);
+    },
   });
 });
 

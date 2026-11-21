@@ -1,4 +1,5 @@
-// RENPHO CSV import/export. Header detection is accent- and language-insensitive (ES/EN exports).
+// RENPHO CSV import/export and JSON backup restore.
+// Header detection is accent- and language-insensitive (ES/EN exports).
 import type { FitRecord } from "./types";
 
 const normalizeHeader = (h: string) =>
@@ -14,39 +15,115 @@ const parseNum = (val: string | undefined): number | null => {
   return Number.isNaN(num) ? null : num;
 };
 
-function parseDate(dateStr: string | undefined, timeStr: string | undefined) {
-  const parts = (dateStr || "").trim().split(/[/\-.]/);
+/** RFC 4180 quote-aware CSV line splitter (handles commas inside quoted fields). */
+export function splitCsvLine(line: string): string[] {
+  const out: string[] = [];
+  let cur = "";
+  let inQuotes = false;
+  for (let i = 0; i < line.length; i++) {
+    const ch = line[i];
+    if (inQuotes) {
+      if (ch === '"' && line[i + 1] === '"') {
+        cur += '"';
+        i++;
+      } else if (ch === '"') {
+        inQuotes = false;
+      } else {
+        cur += ch;
+      }
+    } else if (ch === '"') {
+      inQuotes = true;
+    } else if (ch === ",") {
+      out.push(cur.trim());
+      cur = "";
+    } else {
+      cur += ch;
+    }
+  }
+  out.push(cur.trim());
+  return out;
+}
+
+function parseTime(timeStr: string | undefined): { hh: string; mm: string; ss: string } | null {
+  const raw = (timeStr || "08:00:00").trim();
+  const match = raw.match(/^(\d{1,2}):(\d{2})(?::(\d{2}))?(?:\s*([AaPp][Mm]))?$/);
+  if (!match) return null;
+  let hour = Number(match[1]);
+  const minute = Number(match[2]);
+  const second = Number(match[3] ?? "0");
+  const meridiem = match[4]?.toUpperCase();
+
+  if (meridiem) {
+    if (hour < 1 || hour > 12) return null;
+    if (meridiem === "AM") hour = hour === 12 ? 0 : hour;
+    else hour = hour === 12 ? 12 : hour + 12;
+  }
+  if (hour > 23 || minute > 59 || second > 59) return null;
+  return {
+    hh: String(hour).padStart(2, "0"),
+    mm: String(minute).padStart(2, "0"),
+    ss: String(second).padStart(2, "0"),
+  };
+}
+
+function detectDateOrder(rows: string[][], dateCol: number, preferMdy: boolean): "dmy" | "mdy" {
+  for (const cols of rows) {
+    const raw = (dateCol !== -1 ? cols[dateCol] : cols[0]) || "";
+    const datePart = raw.trim().split(/\s+/)[0] || "";
+    const parts = datePart.split(/[/\-.]/);
+    if (parts.length !== 3 || parts[0].length === 4) continue;
+    const a = Number(parts[0]);
+    const b = Number(parts[1]);
+    if (a > 12) return "dmy";
+    if (b > 12) return "mdy";
+  }
+  return preferMdy ? "mdy" : "dmy";
+}
+
+function parseDate(dateStr: string | undefined, timeStr: string | undefined, order: "dmy" | "mdy" = "dmy") {
+  const raw = (dateStr || "").trim();
+  // Support combined "YYYY-MM-DD HH:MM:SS" or "MM/DD/YYYY 08:30:00 AM" in a single column
+  const spaceIdx = raw.indexOf(" ");
+  const dateOnly = spaceIdx !== -1 && !timeStr ? raw.slice(0, spaceIdx) : raw.split(/\s+/)[0];
+  const embeddedTime = spaceIdx !== -1 && !timeStr ? raw.slice(spaceIdx + 1).trim() : undefined;
+
+  const parts = dateOnly.split(/[/\-.]/);
   if (parts.length !== 3) return null;
-  let [day, month, year] = parts;
-  if (day.length === 4) {
+  let day: string;
+  let month: string;
+  let year: string;
+  if (parts[0].length === 4) {
     [year, month, day] = parts;
-  } else if (year.length === 2) {
-    year = `20${year}`;
+  } else {
+    [day, month, year] = order === "mdy" ? [parts[1], parts[0], parts[2]] : parts;
+    if (year.length === 2) year = `20${year}`;
   }
   day = day.padStart(2, "0");
   month = month.padStart(2, "0");
   if (!/^\d{4}$/.test(year) || !/^\d{2}$/.test(month) || !/^\d{2}$/.test(day)) return null;
+  const mNum = Number(month);
+  const dNum = Number(day);
+  if (mNum < 1 || mNum > 12 || dNum < 1 || dNum > 31) return null;
 
-  const t = (timeStr || "08:00:00").trim().split(":");
-  const hh = (t[0] || "08").padStart(2, "0");
-  const mm = (t[1] || "00").padStart(2, "0");
-  const ss = (t[2] || "00").slice(0, 2).padStart(2, "0");
-  if (!/^\d{2}$/.test(hh) || !/^\d{2}$/.test(mm) || !/^\d{2}$/.test(ss)) return null;
+  const t = parseTime(timeStr || embeddedTime);
+  if (!t) return null;
 
-  const iso = `${year}-${month}-${day}T${hh}:${mm}:${ss}`;
-  const timestamp = new Date(iso).getTime();
-  if (Number.isNaN(timestamp)) return null;
-  return { date: `${year}-${month}-${day}`, time: `${hh}:${mm}:${ss}`, iso, timestamp };
+  const iso = `${year}-${month}-${day}T${t.hh}:${t.mm}:${t.ss}`;
+  const dObj = new Date(iso);
+  const timestamp = dObj.getTime();
+  if (Number.isNaN(timestamp) || dObj.getMonth() + 1 !== mNum || dObj.getDate() !== dNum) return null;
+  return { date: `${year}-${month}-${day}`, time: `${t.hh}:${t.mm}:${t.ss}`, iso, timestamp };
 }
 
 export function parseRenphoCsv(csvText: string): { items: FitRecord[]; error?: string } {
   const lines = csvText
-    .split("\n")
+    .replace(/^\uFEFF/, "")
+    .split(/\r?\n/)
     .map((l) => l.trim())
     .filter(Boolean);
   if (lines.length < 2) return { items: [], error: "El archivo no contiene filas de datos." };
 
-  const headers = lines[0].split(",").map((c) => normalizeHeader(c.trim().replace(/^"|"$/g, "")));
+  const headers = splitCsvLine(lines[0]).map(normalizeHeader);
   const col = (keywords: string[]) => {
     for (const kw of keywords) {
       const idx = headers.findIndex((h) => h === kw || h.includes(kw));
@@ -74,16 +151,20 @@ export function parseRenphoCsv(csvText: string): { items: FitRecord[]; error?: s
     age: col(["edadmetabolica", "metabolicage"]),
   };
   const at = (cols: string[], idx: number) => (idx !== -1 ? parseNum(cols[idx]) : null);
+  const isEnglishHeader = headers.some((h) => h.includes("weight") || h.includes("timeofmeasurement"));
+  const rows = lines.slice(1).map(splitCsvLine);
+  const dateOrder = detectDateOrder(rows, c.date, isEnglishHeader);
 
   const items: FitRecord[] = [];
-  for (let i = 1; i < lines.length; i++) {
-    const cols = lines[i].split(",").map((v) => v.trim().replace(/^"|"$/g, ""));
-    if (cols.length < 3) continue;
+  for (const cols of rows) {
+    if (cols.length < 2) continue;
 
-    const d = parseDate(c.date !== -1 ? cols[c.date] : cols[0], c.time !== -1 ? cols[c.time] : cols[1]);
+    const rawDate = c.date !== -1 ? cols[c.date] : cols[0];
+    const rawTime = c.time !== -1 && c.time !== c.date ? cols[c.time] : c.date === -1 ? cols[1] : undefined;
+    const d = parseDate(rawDate, rawTime, dateOrder);
     if (!d) continue;
     const weight = c.weight !== -1 ? parseNum(cols[c.weight]) : parseNum(cols[2]);
-    if (!weight) continue;
+    if (!weight || weight < 20 || weight > 400) continue;
 
     const bodyFat = at(cols, c.bodyFat);
     const fatFreeWeight = at(cols, c.fatFree);
@@ -111,6 +192,68 @@ export function parseRenphoCsv(csvText: string): { items: FitRecord[]; error?: s
     });
   }
   if (!items.length) return { items, error: "No se reconoció ningún pesaje en ese formato." };
+  return { items };
+}
+
+const OPT_NUM_KEYS = [
+  "bmi",
+  "bodyFat",
+  "skeletalMuscle",
+  "fatFreeWeight",
+  "subcutaneousFat",
+  "visceralFat",
+  "bodyWater",
+  "muscleMass",
+  "boneMass",
+  "protein",
+  "bmr",
+  "metabolicAge",
+  "fatMassKg",
+  "leanMassKg",
+] as const;
+
+/** Parses a JSON backup exported by the app (FitRecord[] or { records: FitRecord[] }). */
+export function parseJsonBackup(text: string): { items: FitRecord[]; error?: string } {
+  let parsed: unknown;
+  try {
+    parsed = JSON.parse(text);
+  } catch {
+    return { items: [], error: "El archivo JSON no es válido." };
+  }
+  const rawList = Array.isArray(parsed)
+    ? parsed
+    : parsed && typeof parsed === "object" && Array.isArray((parsed as { records?: unknown }).records)
+      ? (parsed as { records: unknown[] }).records
+      : null;
+  if (!rawList) return { items: [], error: "El JSON no contiene una lista de pesajes." };
+
+  const items: FitRecord[] = [];
+  for (const r of rawList) {
+    if (!r || typeof r !== "object") continue;
+    const rec = r as Record<string, unknown>;
+    const weight = typeof rec.weight === "number" && Number.isFinite(rec.weight) ? rec.weight : null;
+    if (!weight || weight < 20 || weight > 400) continue;
+    if (typeof rec.date !== "string" || !/^\d{4}-\d{2}-\d{2}$/.test(rec.date)) continue;
+    const time = typeof rec.time === "string" && /^\d{2}:\d{2}(:\d{2})?$/.test(rec.time) ? (rec.time.length === 5 ? `${rec.time}:00` : rec.time) : "08:00:00";
+    const iso = typeof rec.iso === "string" && /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}(:\d{2})?$/.test(rec.iso) ? rec.iso : `${rec.date}T${time}`;
+    const ts = typeof rec.timestamp === "number" && Number.isFinite(rec.timestamp) ? rec.timestamp : new Date(iso).getTime();
+    if (!Number.isFinite(ts)) continue;
+
+    const item: FitRecord = {
+      id: typeof rec.id === "string" && /^[0-9A-Za-z_:.\-]{1,64}$/.test(rec.id) ? rec.id : `${rec.date}_${time}`,
+      date: rec.date,
+      time,
+      iso,
+      timestamp: ts,
+      weight,
+    };
+    for (const k of OPT_NUM_KEYS) {
+      const v = rec[k];
+      item[k] = typeof v === "number" && Number.isFinite(v) ? v : null;
+    }
+    items.push(item);
+  }
+  if (!items.length) return { items, error: "No se encontró ningún pesaje válido en el JSON." };
   return { items };
 }
 
@@ -149,4 +292,10 @@ export function downloadBlob(blob: Blob, filename: string): void {
   setTimeout(() => URL.revokeObjectURL(url), 1000);
 }
 
-export const today = () => new Date().toISOString().split("T")[0];
+/** Local YYYY-MM-DD date string (avoids UTC off-by-one near midnight). */
+export const today = (now = new Date()): string => {
+  const y = now.getFullYear();
+  const m = String(now.getMonth() + 1).padStart(2, "0");
+  const d = String(now.getDate()).padStart(2, "0");
+  return `${y}-${m}-${d}`;
+};

@@ -182,11 +182,15 @@ function renderRecomposition(s: Summary): void {
   }
 
   const lost = rc.weightLost > 0.2;
+  const gained = rc.weightLost < -0.2;
+  setText("recomp-title", gained ? "Qué has ganado" : "Qué has perdido");
   setText(
     "recomp-sub",
     lost
       ? `Desde el ${fmtDate(rc.from.timestamp)}: ${fmt(rc.weightLost, 1)} kg menos en la báscula`
-      : `Desde el ${fmtDate(rc.from.timestamp)} tu peso apenas ha bajado`
+      : gained
+        ? `Desde el ${fmtDate(rc.from.timestamp)}: +${fmt(-rc.weightLost, 1)} kg en la báscula`
+        : `Desde el ${fmtDate(rc.from.timestamp)} tu peso se ha mantenido estable`
   );
 
   quality.hidden = !rc.quality;

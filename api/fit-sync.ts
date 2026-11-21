@@ -6,13 +6,18 @@ export const config = {
 
 declare const process: any;
 
-const GITHUB_TOKEN = process.env.FIT_GITHUB_TOKEN || process.env.GITHUB_TOKEN || "";
-const GIST_ID = process.env.FIT_GIST_ID || "";
-const GIST_FILENAME = process.env.FIT_GIST_FILENAME || "fit-data.json";
-
 const MAX_BODY_BYTES = 2_000_000;
 const MAX_RECORDS = 20_000;
-const DEFAULT_GOALS = { targetWeight: 77.0, targetBodyFat: 17.5 };
+const MAX_DELETED = 5_000;
+const DEFAULT_GOALS = { targetWeight: 75, targetBodyFat: 18 };
+
+function getGistConfig() {
+  return {
+    token: (process.env.FIT_GITHUB_TOKEN || "").trim(),
+    gistId: (process.env.FIT_GIST_ID || "").trim(),
+    filename: (process.env.FIT_GIST_FILENAME || "fit-data.json").trim() || "fit-data.json",
+  };
+}
 
 // Numeric record fields and their accepted range. Anything else is dropped.
 const NUMERIC_FIELDS: Record<string, [number, number]> = {
@@ -49,13 +54,14 @@ function sanitizeRecord(raw: any): Record<string, unknown> | null {
   if (typeof date !== "string" || !DATE_RE.test(date)) return null;
   if (typeof time !== "string" || !TIME_RE.test(time)) return null;
   if (typeof iso !== "string" || !ISO_RE.test(iso)) return null;
+  if (typeof timestamp !== "number" || !Number.isFinite(timestamp)) return null;
 
   const record: Record<string, unknown> = {
     id,
     date,
     time,
     iso,
-    timestamp: typeof timestamp === "number" && Number.isFinite(timestamp) ? timestamp : null,
+    timestamp,
   };
   for (const [field, range] of Object.entries(NUMERIC_FIELDS)) {
     record[field] = numberInRange(raw[field], range);
@@ -80,9 +86,21 @@ function sanitizeProfile(raw: any) {
   };
 }
 
-function gistHeaders(extra: Record<string, string> = {}) {
+function sanitizeDeletedIds(raw: unknown): Record<string, number> {
+  if (!raw || typeof raw !== "object" || Array.isArray(raw)) return {};
+  const entries: [string, number][] = [];
+  for (const [k, v] of Object.entries(raw as Record<string, unknown>)) {
+    if (ID_RE.test(k) && typeof v === "number" && Number.isFinite(v) && v > 0) {
+      entries.push([k, v]);
+    }
+  }
+  entries.sort((a, b) => b[1] - a[1]);
+  return Object.fromEntries(entries.slice(0, MAX_DELETED));
+}
+
+function gistHeaders(token: string, extra: Record<string, string> = {}) {
   return {
-    Authorization: `Bearer ${GITHUB_TOKEN}`,
+    Authorization: `Bearer ${token}`,
     Accept: "application/vnd.github+json",
     "User-Agent": "Fit-Sync-Client",
     ...extra,
@@ -94,7 +112,8 @@ export default async function handler(request: Request) {
     return json({ ok: false, error: "Unauthorized" }, 401);
   }
 
-  if (!GITHUB_TOKEN || !GIST_ID) {
+  const { token, gistId, filename } = getGistConfig();
+  if (!token || !gistId) {
     return json({
       ok: false,
       configured: false,
@@ -105,8 +124,8 @@ export default async function handler(request: Request) {
   // GET: Retrieve latest synchronized health records from GitHub Gist
   if (request.method === "GET") {
     try {
-      const gistRes = await fetch(`https://api.github.com/gists/${GIST_ID}`, {
-        headers: gistHeaders(),
+      const gistRes = await fetch(`https://api.github.com/gists/${gistId}`, {
+        headers: gistHeaders(token),
         cache: "no-store",
       });
 
@@ -115,12 +134,24 @@ export default async function handler(request: Request) {
       }
 
       const gistData = await gistRes.json();
-      const file = gistData.files?.[GIST_FILENAME] || (gistData.files ? Object.values(gistData.files)[0] : null);
-      if (!file || !file.content) {
-        return json({ ok: true, configured: true, records: [], updatedAt: null });
+      const file = gistData.files?.[filename] || (gistData.files ? (Object.values(gistData.files)[0] as any) : null);
+      if (!file) {
+        return json({ ok: true, configured: true, records: [], deletedIds: {}, updatedAt: null });
       }
 
-      const parsed = JSON.parse(file.content);
+      let rawContent: string | null = typeof file.content === "string" ? file.content : null;
+      if (file.truncated && typeof file.raw_url === "string") {
+        const rawRes = await fetch(file.raw_url, { headers: gistHeaders(token), cache: "no-store" });
+        if (!rawRes.ok) {
+          return json({ ok: false, error: "Failed to fetch full Gist content" }, 502);
+        }
+        rawContent = await rawRes.text();
+      }
+      if (!rawContent) {
+        return json({ ok: true, configured: true, records: [], deletedIds: {}, updatedAt: null });
+      }
+
+      const parsed = JSON.parse(rawContent);
       const records = Array.isArray(parsed.records)
         ? parsed.records.map(sanitizeRecord).filter(Boolean)
         : [];
@@ -129,6 +160,7 @@ export default async function handler(request: Request) {
         configured: true,
         updatedAt: parsed.updatedAt || gistData.updated_at,
         records,
+        deletedIds: sanitizeDeletedIds(parsed.deletedIds),
         goals: sanitizeGoals(parsed.goals),
         profile: sanitizeProfile(parsed.profile),
       });
@@ -157,21 +189,23 @@ export default async function handler(request: Request) {
 
       const records = body.records.map(sanitizeRecord).filter(Boolean);
       const rejected = body.records.length - records.length;
+      const deletedIds = sanitizeDeletedIds(body.deletedIds);
 
       const payload = {
         updatedAt: new Date().toISOString(),
         totalRecords: records.length,
         goals: sanitizeGoals(body.goals),
         profile: sanitizeProfile(body.profile),
+        deletedIds,
         records,
       };
 
-      const updateRes = await fetch(`https://api.github.com/gists/${GIST_ID}`, {
+      const updateRes = await fetch(`https://api.github.com/gists/${gistId}`, {
         method: "PATCH",
-        headers: gistHeaders({ "Content-Type": "application/json" }),
+        headers: gistHeaders(token, { "Content-Type": "application/json" }),
         body: JSON.stringify({
           files: {
-            [GIST_FILENAME]: {
+            [filename]: {
               content: JSON.stringify(payload, null, 2),
             },
           },

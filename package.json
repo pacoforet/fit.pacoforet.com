@@ -5,6 +5,8 @@
   "scripts": {
     "dev": "astro dev",
     "build": "astro build",
+    "check": "astro check && tsc --noEmit",
+    "test": "vitest run",
     "preview": "astro preview",
     "auth:hash": "node scripts/generate-auth.mjs",
     "astro": "astro"
@@ -15,5 +17,10 @@
     "astro": "^6.4.8",
     "chart.js": "^4.5.1",
     "tailwindcss": "^4.3.3"
+  },
+  "devDependencies": {
+    "@astrojs/check": "^0.9.12",
+    "typescript": "^6.0.3",
+    "vitest": "^5.1.1"
   }
 }

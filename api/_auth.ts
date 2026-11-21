@@ -18,8 +18,29 @@ function getPasswordHash(): string {
   return (process.env.FIT_PASSWORD_HASH || "").trim();
 }
 
+interface ParsedHash {
+  iterations: number;
+  salt: Uint8Array<ArrayBuffer>;
+  expected: Uint8Array<ArrayBuffer>;
+}
+
+function parsePasswordHash(): ParsedHash | null {
+  const parts = getPasswordHash().split(":");
+  if (parts.length !== 4 || parts[0] !== "pbkdf2-sha256") return null;
+  const iterations = Number(parts[1]);
+  if (!Number.isInteger(iterations) || iterations < 100_000 || iterations > 5_000_000) return null;
+  try {
+    const salt = b64urlToBytes(parts[2]);
+    const expected = b64urlToBytes(parts[3]);
+    if (salt.length < 8 || expected.length < 16) return null;
+    return { iterations, salt, expected };
+  } catch {
+    return null;
+  }
+}
+
 export function isAuthConfigured(): boolean {
-  return getPasswordHash().split(":").length === 4;
+  return parsePasswordHash() !== null;
 }
 
 function b64urlToBytes(value: string): Uint8Array<ArrayBuffer> {
@@ -44,26 +65,25 @@ function timingSafeEqual(a: Uint8Array, b: Uint8Array): boolean {
 }
 
 export async function verifyPassword(user: string, pass: string): Promise<boolean> {
-  const parts = getPasswordHash().split(":");
-  if (parts.length !== 4 || parts[0] !== "pbkdf2-sha256") return false;
-  const iterations = Number(parts[1]);
-  if (!Number.isInteger(iterations) || iterations < 100_000) return false;
-
-  const salt = b64urlToBytes(parts[2]);
-  const expected = b64urlToBytes(parts[3]);
-  const baseKey = await crypto.subtle.importKey(
-    "raw",
-    encoder.encode(`${user}:${pass}`),
-    "PBKDF2",
-    false,
-    ["deriveBits"]
-  );
-  const derived = await crypto.subtle.deriveBits(
-    { name: "PBKDF2", hash: "SHA-256", salt, iterations },
-    baseKey,
-    expected.length * 8
-  );
-  return timingSafeEqual(new Uint8Array(derived), expected);
+  const parsed = parsePasswordHash();
+  if (!parsed) return false;
+  try {
+    const baseKey = await crypto.subtle.importKey(
+      "raw",
+      encoder.encode(`${user}:${pass}`),
+      "PBKDF2",
+      false,
+      ["deriveBits"]
+    );
+    const derived = await crypto.subtle.deriveBits(
+      { name: "PBKDF2", hash: "SHA-256", salt: parsed.salt, iterations: parsed.iterations },
+      baseKey,
+      parsed.expected.length * 8
+    );
+    return timingSafeEqual(new Uint8Array(derived), parsed.expected);
+  } catch {
+    return false;
+  }
 }
 
 async function getSessionKey(): Promise<CryptoKey> {
@@ -112,7 +132,7 @@ export function isSameOrigin(request: Request): boolean {
   const origin = request.headers.get("origin");
   if (!origin) return false;
   try {
-    return new URL(origin).host === new URL(request.url).host;
+    return new URL(origin).origin === new URL(request.url).origin;
   } catch {
     return false;
   }

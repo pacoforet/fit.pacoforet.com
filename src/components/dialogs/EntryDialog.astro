@@ -2,11 +2,11 @@
 import Sheet from "../Sheet.astro";
 
 const optional = [
-  { id: "m-fat", label: "Grasa corporal", unit: "%", step: "0.1", placeholder: "21,2" },
-  { id: "m-muscle", label: "Músculo esquelético", unit: "%", step: "0.1", placeholder: "50,8" },
-  { id: "m-visceral", label: "Grasa visceral", unit: "nivel", step: "1", placeholder: "6" },
-  { id: "m-water", label: "Agua corporal", unit: "%", step: "0.1", placeholder: "56,9" },
-  { id: "m-age", label: "Edad metabólica", unit: "años", step: "1", placeholder: "37" },
+  { id: "m-fat", label: "Grasa corporal", unit: "%", step: "0.1", min: "0", max: "80", placeholder: "21,2" },
+  { id: "m-muscle", label: "Músculo esquelético", unit: "%", step: "0.1", min: "0", max: "100", placeholder: "50,8" },
+  { id: "m-visceral", label: "Grasa visceral", unit: "nivel", step: "1", min: "0", max: "60", placeholder: "6" },
+  { id: "m-water", label: "Agua corporal", unit: "%", step: "0.1", min: "0", max: "100", placeholder: "56,9" },
+  { id: "m-age", label: "Edad metabólica", unit: "años", step: "1", min: "0", max: "150", placeholder: "37" },
 ];
 ---
 
@@ -42,7 +42,7 @@ const optional = [
               <label class="field-label" for={f.id}>
                 {f.label} <span class="text-fg-3">({f.unit})</span>
               </label>
-              <input id={f.id} class="input" type="number" inputmode="decimal" step={f.step} placeholder={f.placeholder} />
+              <input id={f.id} class="input" type="number" inputmode="decimal" step={f.step} min={f.min} max={f.max} placeholder={f.placeholder} />
             </div>
           ))
         }
